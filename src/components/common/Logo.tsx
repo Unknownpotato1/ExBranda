@@ -44,7 +44,6 @@ export function Logo({ className, size = 32, showText = true }: LogoProps) {
           <span className="font-semibold text-base tracking-tight">
             Ex<span className="gradient-text">Branda</span>
           </span>
-          <span className="text-[10px] text-muted-foreground mt-0.5">Earn by Promoting Brands</span>
         </div>
       )}
     </div>

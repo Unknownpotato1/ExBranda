@@ -143,9 +143,9 @@
   border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
 }
 
-/* Gradient text */
+/* Gradient text — matches the wallet hero card gradient (from-primary via-primary to-blue-800) */
 .gradient-text {
-  background: linear-gradient(135deg, oklch(0.70 0.20 255), oklch(0.65 0.18 235) 60%, oklch(0.72 0.16 275));
+  background: linear-gradient(135deg, oklch(0.55 0.22 255), oklch(0.50 0.20 255) 50%, oklch(0.40 0.15 265));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

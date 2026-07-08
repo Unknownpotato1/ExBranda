@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { House, Upload, Wallet, History, User } from "lucide-react";
+import { House, Upload, Wallet, History } from "lucide-react";
 import { useAppStore, ViewName } from "@/store/appStore";
 import { cn } from "@/lib/utils";
 
@@ -11,12 +11,13 @@ const items: { id: ViewName; label: string; icon: typeof House }[] = [
   { id: "submit", label: "Submit", icon: Upload },
   { id: "wallet", label: "Wallet", icon: Wallet },
   { id: "history", label: "History", icon: History },
-  { id: "profile", label: "Profile", icon: User },
+  // Profile is rendered separately as the 5th item (avatar, not icon)
 ];
 
 export function BottomNav() {
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
+  const user = useAppStore((s) => s.user);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 pb-safe">
@@ -50,6 +51,48 @@ export function BottomNav() {
                 </li>
               );
             })}
+            {/* Profile — avatar instead of icon */}
+            <li className="flex-1">
+              <button
+                onClick={() => setView("profile")}
+                className={cn(
+                  "relative w-full flex flex-col items-center gap-1 py-2 rounded-xl transition-colors",
+                  view === "profile" ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+                aria-label="Profile"
+                aria-current={view === "profile" ? "page" : undefined}
+              >
+                {view === "profile" && (
+                  <motion.span
+                    layoutId="bottom-nav-active"
+                    className="absolute inset-0 rounded-xl bg-primary/10 dark:bg-primary/15"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <div className="relative z-10 h-5 w-5 rounded-full overflow-hidden ring-2 ring-offset-1 ring-offset-transparent flex items-center justify-center">
+                  {user?.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt="Profile"
+                      className={cn(
+                        "h-full w-full object-cover",
+                        view === "profile" && "ring-primary"
+                      )}
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        "h-full w-full bg-gradient-to-br from-primary to-blue-800 flex items-center justify-center text-white text-[9px] font-bold",
+                        view === "profile" && "ring-primary"
+                      )}
+                    >
+                      {(user?.fullName || user?.name || "U").charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <span className="relative z-10 text-[10px] font-medium">Profile</span>
+              </button>
+            </li>
           </ul>
         </div>
       </div>

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useAppStore } from "@/store/appStore";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
+import { InstallPrompt } from "./InstallPrompt";
 import { Confetti } from "@/components/common/Confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
@@ -57,6 +58,8 @@ export function AppShell() {
       </main>
 
       {!isAdminView && <BottomNav />}
+
+      {!isAdminView && <InstallPrompt />}
 
       <Confetti active={celebrate} onDone={clearCelebrate} />
     </div>

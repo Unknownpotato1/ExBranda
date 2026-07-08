@@ -104,7 +104,7 @@ export function DashboardView() {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-primary/90 via-primary to-blue-800 text-white shadow-xl shadow-primary/30"
+            className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-primary/90 via-primary to-blue-800 text-white"
           >
             {/* Decorative pattern */}
             <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -167,25 +167,25 @@ export function DashboardView() {
             )}
           </div>
           <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-3 gap-2 text-center">
-            <ReelStat label="Approved" value={data?.stats.approvedReels ?? 0} icon={CircleCheck} tone="text-emerald-500" />
-            <ReelStat label="Pending" value={data?.stats.pendingReels ?? 0} icon={Clock3} tone="text-amber-500" />
-            <ReelStat label="Rejected" value={data?.stats.rejectedReels ?? 0} icon={CircleX} tone="text-rose-500" />
+            <ReelStat label="Approved" value={data?.stats.approvedReels ?? 0} tone="text-emerald-500" />
+            <ReelStat label="Pending" value={data?.stats.pendingReels ?? 0} tone="text-amber-500" />
+            <ReelStat label="Rejected" value={data?.stats.rejectedReels ?? 0} tone="text-rose-500" />
           </div>
         </motion.div>
 
         {/* Quick actions */}
         <div className="space-y-2.5">
           <ActionButton
-            label="Submit Reel"
-            description="Add a new reel for review"
-            icon={Upload}
-            onClick={() => setView("submit")}
-          />
-          <ActionButton
             label="Download Logo"
             description="Get the ExBranda logo for your Reels"
             icon={Download}
             onClick={() => setView("download")}
+          />
+          <ActionButton
+            label="Submit Reel"
+            description="Add a new reel for review"
+            icon={Upload}
+            onClick={() => setView("submit")}
           />
           <ActionButton
             label="Withdraw Money"
@@ -219,18 +219,15 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function ReelStat({
   label,
   value,
-  icon: Icon,
   tone,
 }: {
   label: string;
   value: number;
-  icon: typeof CircleCheck;
   tone: string;
 }) {
   return (
     <div className="flex flex-col items-center">
-      <Icon className={`h-4 w-4 ${tone}`} />
-      <div className="text-base font-semibold mt-1 tabular-nums">{formatNumber(value)}</div>
+      <div className={`text-base font-semibold tabular-nums ${tone}`}>{formatNumber(value)}</div>
       <div className="text-[10px] text-muted-foreground">{label}</div>
     </div>
   );
