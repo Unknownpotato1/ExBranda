@@ -1,0 +1,2 @@
+# Firebase CLI Config — single project setup
+# Run `firebase use --add exbranda` after `firebase login` to bind this directory to your project.
