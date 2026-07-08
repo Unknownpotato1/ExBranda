@@ -147,6 +147,114 @@ async function aggregateWithJsFilter(collection: any, where: DocData | undefined
   return { _sum: result };
 }
 
+// Helper: findMany with where + orderBy without requiring composite indexes.
+// Strategy: query by the first where condition (single field, no index needed),
+// filter the rest in JS, then sort + limit in JS.
+async function findManyWithJsFilter(
+  collection: any,
+  opts: { where?: DocData; orderBy?: any; take?: number }
+): Promise<any[]> {
+  const { where, orderBy, take } = opts;
+  let q: any = collection;
+  if (where) {
+    const entries = Object.entries(where);
+    if (entries.length > 0) {
+      // Use only the first WHERE condition for the Firestore query
+      const [k0, v0] = entries[0];
+      let op = "==";
+      let val: any = v0;
+      if (v0 && typeof v0 === "object" && !(v0 instanceof Date)) {
+        if ("gte" in v0) { op = ">="; val = v0.gte; }
+        else if ("lt" in v0) { op = "<"; val = v0.lt; }
+        else if ("in" in v0) { op = "in"; val = v0.in; }
+        else if ("contains" in v0) {
+          // Prefix match — Firestore supports this with range query
+          q = q.where(k0, ">=", v0.contains).where(k0, "<=", v0.contains + "\uf8ff");
+          // skip default handling
+          // Continue to JS filter for additional conditions
+          if (entries.length > 1) {
+            const snap = await q.get();
+            let docs = normalizeSnapshot(snap).map(reviver);
+            docs = docs.filter((d: any) => {
+              for (let i = 1; i < entries.length; i++) {
+                const [k, v] = entries[i];
+                if (v && typeof v === "object" && "contains" in v) {
+                  if (!String(d[k] || "").includes(v.contains)) return false;
+                } else if (v && typeof v === "object" && "gte" in v) {
+                  const dv = d[k] instanceof Date ? d[k] : new Date(d[k]);
+                  if (!(dv && dv.getTime() >= v.gte.getTime())) return false;
+                } else {
+                  if (d[k] !== v) return false;
+                }
+              }
+              return true;
+            });
+            return applyOrderByAndTake(docs, orderBy, take);
+          }
+          const snap = await q.get();
+          let docs = normalizeSnapshot(snap).map(reviver);
+          return applyOrderByAndTake(docs, orderBy, take);
+        }
+      }
+      q = q.where(k0, op, val);
+      // If there are more conditions, fetch all and filter in JS
+      if (entries.length > 1) {
+        const snap = await q.get();
+        let docs = normalizeSnapshot(snap).map(reviver);
+        docs = docs.filter((d: any) => {
+          for (let i = 1; i < entries.length; i++) {
+            const [k, v] = entries[i];
+            if (v instanceof Date) {
+              const dv = d[k] instanceof Date ? d[k] : new Date(d[k]);
+              if (!(dv && dv.getTime() === v.getTime())) return false;
+            } else if (v && typeof v === "object" && "gte" in v) {
+              const dv = d[k] instanceof Date ? d[k] : new Date(d[k]);
+              if (!(dv && dv.getTime() >= v.gte.getTime())) return false;
+            } else if (v && typeof v === "object" && "lt" in v) {
+              const dv = d[k] instanceof Date ? d[k] : new Date(d[k]);
+              if (!(dv && dv.getTime() < v.lt.getTime())) return false;
+            } else if (v && typeof v === "object" && "in" in v) {
+              if (!v.in.includes(d[k])) return false;
+            } else {
+              if (d[k] !== v) return false;
+            }
+          }
+          return true;
+        });
+        return applyOrderByAndTake(docs, orderBy, take);
+      }
+    }
+  }
+  // Single condition or no condition — apply orderBy in Firestore (single-field indexes are auto-created)
+  if (orderBy) {
+    for (const [field, dir] of Object.entries(orderBy)) {
+      q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
+    }
+  }
+  if (take) q = q.limit(take);
+  const snap = await q.get();
+  return normalizeSnapshot(snap).map(reviver);
+}
+
+function applyOrderByAndTake(docs: any[], orderBy?: any, take?: number): any[] {
+  if (orderBy) {
+    for (const [field, dir] of Object.entries(orderBy)) {
+      docs.sort((a, b) => {
+        const av = a[field];
+        const bv = b[field];
+        const aTime = av instanceof Date ? av.getTime() : av && av.toDate ? av.toDate().getTime() : av ? new Date(av).getTime() : 0;
+        const bTime = bv instanceof Date ? bv.getTime() : bv && bv.toDate ? bv.toDate().getTime() : bv ? new Date(bv).getTime() : 0;
+        if (typeof av === "number" && typeof bv === "number") {
+          return dir === "asc" ? av - bv : bv - av;
+        }
+        return dir === "asc" ? aTime - bTime : bTime - aTime;
+      });
+    }
+  }
+  if (take) docs = docs.slice(0, take);
+  return docs;
+}
+
 // === USERS ===
 const users = {
   async findUnique({ where, include }: { where: { id?: string; email?: string; referralCode?: string }; include?: DocData }): Promise<any | null> {
@@ -189,26 +297,16 @@ const users = {
 
   async findMany({ where, include, orderBy, take }: { where?: DocData; include?: DocData; orderBy?: any; take?: number } = {}): Promise<any[]> {
     const db = getDb();
-    let q: any = db.collection("users");
+    // Strip out Prisma-style operators that our helper doesn't understand
+    const cleanWhere: DocData = {};
     if (where) {
       for (const [k, v] of Object.entries(where)) {
-        if (v && typeof v === "object") {
-          // Handle nested where like { role: "user" }
-          if (v.equals !== undefined) q = q.where(k, "==", v.equals);
-          else continue;
-        } else {
-          q = q.where(k, "==", v);
-        }
+        if (v && typeof v === "object" && "equals" in v) cleanWhere[k] = v.equals;
+        else if (v && typeof v === "object" && "gte" in v) cleanWhere[k] = v;
+        else cleanWhere[k] = v;
       }
     }
-    if (orderBy) {
-      for (const [field, dir] of Object.entries(orderBy)) {
-        q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
-      }
-    }
-    if (take) q = q.limit(take);
-    const snap = await q.get();
-    let docs = normalizeSnapshot(snap).map(reviver);
+    let docs = await findManyWithJsFilter(db.collection("users"), { where: cleanWhere, orderBy, take });
     if (include?.wallet) {
       for (const u of docs) {
         const w = await db.collection("wallets").doc(u.id).get();
@@ -280,30 +378,41 @@ const wallets = {
     return null;
   },
 
-  async findMany({ where, include, orderBy }: { where?: DocData; include?: DocData; orderBy?: any } = {}): Promise<any[]> {
+  async findMany({ where, include, orderBy, take }: { where?: DocData; include?: DocData; orderBy?: any; take?: number } = {}): Promise<any> {
     const db = getDb();
-    let q: any = db.collection("wallets");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        if (v && typeof v === "object" && v.role !== undefined) {
-          // where: { user: { role: "user", banned: false } } — we need to join
-          // This is a limitation of NoSQL. We do it in two steps.
-          const userSnap = await db.collection("users").where("role", "==", v.role).get();
-          const userIds = userSnap.docs.map((d) => d.id);
-          if (userIds.length === 0) return [];
-          q = q.where("userId", "in", userIds.slice(0, 30)); // Firestore "in" supports up to 30
-        } else {
-          q = q.where(k, "==", v);
+    // Special handling for `where: { user: { role, banned } }` (used by admin stats & leaderboard)
+    if (where?.user && typeof where.user === "object") {
+      // Fetch all users matching the role/banned filter
+      const userFilter = where.user as DocData;
+      const userSnap = await db.collection("users").get();
+      const userIds: string[] = [];
+      userSnap.forEach((d: any) => {
+        const u = reviver({ id: d.id, ...d.data() });
+        let match = true;
+        for (const [k, v] of Object.entries(userFilter)) {
+          if (u[k] !== v) { match = false; break; }
+        }
+        if (match) userIds.push(d.id);
+      });
+      if (userIds.length === 0) return [];
+      // Fetch all wallets for these users
+      const walletSnaps = await Promise.all(
+        userIds.map((uid) => db.collection("wallets").doc(uid).get())
+      );
+      let docs = walletSnaps
+        .filter((s: any) => s.exists)
+        .map((s: any) => reviver({ id: s.id, ...s.data() }));
+      if (include?.user) {
+        for (const w of docs) {
+          const u = await db.collection("users").doc(w.userId).get();
+          (w as any).user = u.exists ? reviver({ id: u.id, ...u.data() }) : null;
         }
       }
+      // Apply orderBy + take via JS
+      return applyOrderByAndTake(docs, orderBy, take);
     }
-    if (orderBy) {
-      for (const [field, dir] of Object.entries(orderBy)) {
-        q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
-      }
-    }
-    const snap = await q.get();
-    let docs = normalizeSnapshot(snap).map(reviver);
+    // Default path
+    let docs = await findManyWithJsFilter(db.collection("wallets"), { where, orderBy, take });
     if (include?.user) {
       for (const w of docs) {
         const u = await db.collection("users").doc(w.userId).get();
@@ -361,31 +470,15 @@ const submissions = {
 
   async findMany({ where, include, orderBy, take }: { where?: DocData; include?: DocData; orderBy?: any; take?: number } = {}): Promise<any[]> {
     const db = getDb();
-    let q: any = db.collection("submissions");
+    // Strip out Prisma-style operators that our helper doesn't understand
+    const cleanWhere: DocData = {};
     if (where) {
       for (const [k, v] of Object.entries(where)) {
-        if (v && typeof v === "object") {
-          if (v.equals !== undefined) q = q.where(k, "==", v.equals);
-          else if (v.gte !== undefined) q = q.where(k, ">=", v.gte);
-          else if (v.lt !== undefined) q = q.where(k, "<", v.lt);
-          else if (v.in !== undefined) q = q.where(k, "in", v.in);
-          else if (v.contains !== undefined) {
-            // Firestore doesn't support native LIKE — use prefix match (case-sensitive)
-            q = q.where(k, ">=", v.contains).where(k, "<=", v.contains + "\uf8ff");
-          }
-        } else {
-          q = q.where(k, "==", v);
-        }
+        if (v && typeof v === "object" && "equals" in v) cleanWhere[k] = v.equals;
+        else cleanWhere[k] = v;
       }
     }
-    if (orderBy) {
-      for (const [field, dir] of Object.entries(orderBy)) {
-        q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
-      }
-    }
-    if (take) q = q.limit(take);
-    const snap = await q.get();
-    let docs = normalizeSnapshot(snap).map(reviver);
+    let docs = await findManyWithJsFilter(db.collection("submissions"), { where: cleanWhere, orderBy, take });
     if (include?.user) {
       for (const s of docs) {
         const u = await db.collection("users").doc(s.userId).get();
@@ -452,28 +545,7 @@ const withdrawals = {
 
   async findMany({ where, include, orderBy, take }: { where?: DocData; include?: DocData; orderBy?: any; take?: number } = {}): Promise<any[]> {
     const db = getDb();
-    let q: any = db.collection("withdrawals");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        if (v && typeof v === "object") {
-          if (v.gte !== undefined) q = q.where(k, ">=", v.gte);
-          else if (v.in !== undefined) q = q.where(k, "in", v.in);
-          else if (v.contains !== undefined) {
-            q = q.where(k, ">=", v.contains).where(k, "<=", v.contains + "\uf8ff");
-          }
-        } else {
-          q = q.where(k, "==", v);
-        }
-      }
-    }
-    if (orderBy) {
-      for (const [field, dir] of Object.entries(orderBy)) {
-        q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
-      }
-    }
-    if (take) q = q.limit(take);
-    const snap = await q.get();
-    let docs = normalizeSnapshot(snap).map(reviver);
+    let docs = await findManyWithJsFilter(db.collection("withdrawals"), { where, orderBy, take });
     if (include?.user) {
       for (const w of docs) {
         const u = await db.collection("users").doc(w.userId).get();
@@ -528,20 +600,7 @@ const withdrawals = {
 const transactions = {
   async findMany({ where, orderBy, take }: { where?: DocData; orderBy?: any; take?: number } = {}): Promise<any[]> {
     const db = getDb();
-    let q: any = db.collection("transactions");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        q = q.where(k, "==", v);
-      }
-    }
-    if (orderBy) {
-      for (const [field, dir] of Object.entries(orderBy)) {
-        q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
-      }
-    }
-    if (take) q = q.limit(take);
-    const snap = await q.get();
-    return normalizeSnapshot(snap).map(reviver);
+    return findManyWithJsFilter(db.collection("transactions"), { where, orderBy, take });
   },
 
   async create({ data }: { data: DocData }): Promise<any> {
@@ -595,19 +654,7 @@ const referrals = {
 
   async findMany({ where, include, orderBy }: { where?: DocData; include?: DocData; orderBy?: any } = {}): Promise<any[]> {
     const db = getDb();
-    let q: any = db.collection("referrals");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        q = q.where(k, "==", v);
-      }
-    }
-    if (orderBy) {
-      for (const [field, dir] of Object.entries(orderBy)) {
-        q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
-      }
-    }
-    const snap = await q.get();
-    let docs = normalizeSnapshot(snap).map(reviver);
+    let docs = await findManyWithJsFilter(db.collection("referrals"), { where, orderBy });
     if (include?.referred) {
       for (const r of docs) {
         const u = await db.collection("users").doc(r.referredId).get();
@@ -699,20 +746,7 @@ const admins = {
 const notifications = {
   async findMany({ where, orderBy, take }: { where?: DocData; orderBy?: any; take?: number } = {}): Promise<any[]> {
     const db = getDb();
-    let q: any = db.collection("notifications");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        q = q.where(k, "==", v);
-      }
-    }
-    if (orderBy) {
-      for (const [field, dir] of Object.entries(orderBy)) {
-        q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
-      }
-    }
-    if (take) q = q.limit(take);
-    const snap = await q.get();
-    return normalizeSnapshot(snap).map(reviver);
+    return findManyWithJsFilter(db.collection("notifications"), { where, orderBy, take });
   },
   async create({ data }: { data: DocData }): Promise<any> {
     const db = getDb();
