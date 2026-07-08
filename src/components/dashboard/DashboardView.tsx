@@ -175,7 +175,7 @@ export function DashboardView() {
           />
           <ActionButton
             label="Download Logo"
-            description="PNG · Transparent · SVG · ZIP"
+            description="Get the ExBranda logo for your Reels"
             icon={Download}
             onClick={() => setView("download")}
           />
