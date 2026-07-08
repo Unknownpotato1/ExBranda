@@ -32,6 +32,7 @@ function toUserDTO(u: any): UserDTO {
     instagramHandle: u.instagramHandle,
     country: u.country,
     upiId: u.upiId,
+    photoURL: u.photoURL || null,
     referralCode: u.referralCode,
     referredBy: u.referredBy,
     referralActive: u.referralActive,

@@ -4,7 +4,6 @@ import * as React from "react";
 import { useAppStore } from "@/store/appStore";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
-import { AnnouncementBanner } from "./AnnouncementBanner";
 import { Confetti } from "@/components/common/Confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
@@ -22,7 +21,6 @@ import { NotificationsView } from "@/components/info/NotificationsView";
 import { FAQView } from "@/components/info/FAQView";
 import { ContactView } from "@/components/info/ContactView";
 import { LegalView } from "@/components/info/LegalView";
-import { LeaderboardView } from "@/components/info/LeaderboardView";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 
 export function AppShell() {
@@ -32,25 +30,16 @@ export function AppShell() {
   const clearCelebrate = useAppStore((s) => s.clearCelebrate);
   const { theme, setTheme } = useTheme();
   const storedTheme = useAppStore((s) => s.theme);
-  const [scrolled, setScrolled] = React.useState(false);
 
   // Apply persisted theme preference on mount (intentionally run once)
   React.useEffect(() => {
     if (storedTheme && storedTheme !== theme) setTheme(storedTheme);
   }, []);
 
-  // Track scroll for subtle top bar effect
-  React.useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 4);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   const isAdminView = view === "admin";
 
   return (
     <div className="min-h-screen bg-aurora">
-      <AnnouncementBanner />
       <TopBar />
 
       <main className="pt-2 pb-28">
@@ -95,8 +84,8 @@ function ViewRouter({
     case "faq": return <FAQView />;
     case "contact": return <ContactView />;
     case "legal": return <LegalView />;
-    case "leaderboard": return <LeaderboardView />;
     case "admin": return <AdminPanel />;
     default: return <DashboardView />;
   }
 }
+

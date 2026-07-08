@@ -18,7 +18,6 @@ export type ViewName =
   | "faq"
   | "contact"
   | "legal"
-  | "leaderboard"
   | "admin";
 
 export type ThemeMode = "light" | "dark" | "system";

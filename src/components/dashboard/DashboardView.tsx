@@ -9,10 +9,8 @@ import {
   Wallet as WalletIcon,
   TrendingUp,
   Clock,
-  Sparkles,
   Download,
   Upload,
-  ArrowUpRight,
   CircleCheck,
   Clock3,
   CircleX,
@@ -22,8 +20,6 @@ import {
 } from "lucide-react";
 import { formatINR, formatNumber, getCurrentRate } from "@/lib/payout";
 import { BASE_RATE_PER_10K } from "@/lib/types";
-import { toast } from "sonner";
-import Link from "next/link";
 
 interface DashboardData {
   wallet: {
@@ -74,11 +70,24 @@ export function DashboardView() {
       <div className="mx-auto max-w-md space-y-4">
         {/* Greeting */}
         <div className="flex items-center justify-between pt-1">
-          <div>
-            <p className="text-xs text-muted-foreground">Welcome back,</p>
-            <h2 className="text-lg font-semibold tracking-tight">
-              {user?.fullName?.split(" ")[0] || user?.name?.split(" ")[0] || "Creator"} 👋
-            </h2>
+          <div className="flex items-center gap-2.5">
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user.fullName || "Profile"}
+                className="h-9 w-9 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-chart-3 flex items-center justify-center text-white font-semibold text-sm">
+                {(user?.fullName || user?.name || "U").charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-muted-foreground">Welcome back,</p>
+              <h2 className="text-lg font-semibold tracking-tight">
+                {user?.fullName?.split(" ")[0] || user?.name?.split(" ")[0] || "Creator"} 👋
+              </h2>
+            </div>
           </div>
           {user?.badges && user.badges.length > 0 && (
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-full glass">
@@ -112,7 +121,7 @@ export function DashboardView() {
                   onClick={() => setView("wallet")}
                   className="text-white/80 hover:text-white text-[11px] flex items-center gap-0.5"
                 >
-                  Details <ArrowUpRight className="h-3 w-3" />
+                  Details <ArrowRight className="h-3 w-3" />
                 </button>
               </div>
               <div className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">
@@ -171,7 +180,6 @@ export function DashboardView() {
             description="Add a new reel for review"
             icon={Upload}
             onClick={() => setView("submit")}
-            primary
           />
           <ActionButton
             label="Download Logo"
@@ -187,40 +195,13 @@ export function DashboardView() {
             disabled={wallet ? wallet.balance < 500 : true}
             disabledHint={`Need at least ${formatINR(500)} to withdraw`}
           />
+          <ActionButton
+            label="Refer & Earn +5%"
+            description="Invite creators — bonus activates after first withdrawal"
+            icon={Gift}
+            onClick={() => setView("referrals")}
+          />
         </div>
-
-        {/* Referral banner */}
-        <motion.button
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          onClick={() => setView("referrals")}
-          className="w-full glass rounded-2xl p-4 text-left flex items-center gap-3 hover:bg-foreground/[0.03] transition-colors"
-        >
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-chart-1 to-chart-3 flex items-center justify-center text-white shrink-0">
-            <Gift className="h-5 w-5" />
-          </div>
-          <div className="flex-1">
-            <div className="text-sm font-semibold">Refer & earn +5% rate</div>
-            <div className="text-xs text-muted-foreground">Invite creators — bonus activates after their first withdrawal.</div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-        </motion.button>
-
-        {/* Leaderboard teaser */}
-        <button
-          onClick={() => setView("leaderboard")}
-          className="w-full glass rounded-2xl p-4 text-left flex items-center justify-between hover:bg-foreground/[0.03] transition-colors"
-        >
-          <div>
-            <div className="text-sm font-semibold flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Top Creators
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">See who's earning the most this month</div>
-          </div>
-          <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-        </button>
       </div>
     </div>
   );
@@ -260,7 +241,6 @@ function ActionButton({
   description,
   icon: Icon,
   onClick,
-  primary,
   disabled,
   disabledHint,
 }: {
@@ -268,7 +248,6 @@ function ActionButton({
   description: string;
   icon: typeof Upload;
   onClick: () => void;
-  primary?: boolean;
   disabled?: boolean;
   disabledHint?: string;
 }) {
@@ -277,25 +256,19 @@ function ActionButton({
       whileTap={{ scale: disabled ? 1 : 0.97 }}
       onClick={onClick}
       disabled={disabled}
-      className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-left ${
-        primary
-          ? "bg-foreground text-background hover:opacity-90 glow-primary"
-          : "glass hover:bg-foreground/[0.03]"
-      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-left glass hover:bg-foreground/[0.03] ${
+        disabled ? "opacity-50 cursor-not-allowed" : ""
+      }`}
       title={disabled ? disabledHint : undefined}
     >
-      <div
-        className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${
-          primary ? "bg-background/15" : "bg-primary/10 text-primary"
-        }`}
-      >
+      <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 text-primary">
         <Icon className="h-5 w-5" />
       </div>
       <div className="flex-1">
         <div className="font-semibold text-sm">{label}</div>
-        <div className={`text-xs ${primary ? "opacity-70" : "text-muted-foreground"}`}>{description}</div>
+        <div className="text-xs text-muted-foreground">{description}</div>
       </div>
-      <ArrowRight className={`h-4 w-4 ${primary ? "opacity-70" : "text-muted-foreground"}`} />
+      <ArrowRight className="h-4 w-4 text-muted-foreground" />
     </motion.button>
   );
 }

@@ -27,6 +27,7 @@ export interface UserDTO {
   instagramHandle: string | null;
   country: string | null;
   upiId: string | null;
+  photoURL: string | null;
   referralCode: string;
   referredBy: string | null;
   referralActive: boolean;

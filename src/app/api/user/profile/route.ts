@@ -8,6 +8,7 @@ const schema = z.object({
   instagramHandle: z.string().min(2).optional(),
   country: z.string().min(2).optional(),
   privacyHideWallet: z.boolean().optional(),
+  photoURL: z.string().url().optional().or(z.literal("")),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -30,6 +31,10 @@ export async function PATCH(req: NextRequest) {
     if (parsed.data.country) data.country = parsed.data.country;
     if (typeof parsed.data.privacyHideWallet === "boolean")
       data.privacyHideWallet = parsed.data.privacyHideWallet;
+    // photoURL — empty string clears it, valid URL sets it
+    if (parsed.data.photoURL !== undefined) {
+      data.photoURL = parsed.data.photoURL || null;
+    }
 
     const updated = await db.user.update({ where: { id: user.id }, data });
     return NextResponse.json({ ok: true, user: updated });

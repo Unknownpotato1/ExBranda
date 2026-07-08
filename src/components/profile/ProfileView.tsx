@@ -28,7 +28,8 @@ import {
   CircleHelp,
   MessageCircle,
   FileText,
-  Trophy,
+  Camera,
+  Loader2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { getCurrentRate, formatINR } from "@/lib/payout";
@@ -45,8 +46,55 @@ export function ProfileView() {
   const [privacyHideWallet, setPrivacyHideWallet] = React.useState(user?.privacyHideWallet || false);
   const [saving, setSaving] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const referralLink = `https://exbranda.com/?ref=${user?.referralCode || ""}`;
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image too large (max 2MB)");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      // Read file as base64 data URL
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Upload to server (which uploads to Cloudinary)
+      const r = await fetch("/api/user/upload-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Upload failed");
+
+      // Refresh session to get updated photoURL
+      const me = await fetch("/api/auth/me");
+      const meJ = await me.json();
+      setUser(meJ.user);
+      toast.success("Profile picture updated");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploadingPhoto(false);
+      // Reset input so selecting the same file again triggers change
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -101,10 +149,56 @@ export function ProfileView() {
           animate={{ opacity: 1, y: 0 }}
           className="glass rounded-2xl p-5 text-center"
         >
-          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-chart-3 mx-auto flex items-center justify-center text-white font-semibold text-xl">
-            {(user.fullName || user.name || "U").charAt(0).toUpperCase()}
+          {/* Profile picture with upload */}
+          <div className="relative mx-auto w-fit">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="relative h-20 w-20 rounded-full overflow-hidden group disabled:opacity-60"
+              aria-label="Change profile picture"
+            >
+              {user.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt={user.fullName || "Profile"}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full bg-gradient-to-br from-primary to-chart-3 flex items-center justify-center text-white font-semibold text-2xl">
+                  {(user.fullName || user.name || "U").charAt(0).toUpperCase()}
+                </div>
+              )}
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                {uploadingPhoto ? (
+                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="h-5 w-5 text-white" />
+                )}
+              </div>
+            </button>
+            {/* Small camera badge */}
+            {!uploadingPhoto && (
+              <div className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary flex items-center justify-center ring-2 ring-background pointer-events-none">
+                <Camera className="h-3 w-3 text-primary-foreground" />
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
           </div>
-          <div className="mt-3 font-semibold">{user.fullName || user.name}</div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingPhoto}
+            className="mt-2 text-[11px] text-primary font-medium hover:underline disabled:opacity-60"
+          >
+            {uploadingPhoto ? "Uploading…" : "Change photo"}
+          </button>
+          <div className="mt-2 font-semibold">{user.fullName || user.name}</div>
           <div className="text-xs text-muted-foreground mt-0.5">{user.email}</div>
           {user.instagramHandle && (
             <div className="text-xs text-primary mt-1 flex items-center justify-center gap-1">
@@ -202,7 +296,6 @@ export function ProfileView() {
         {/* Menu */}
         <div className="glass rounded-2xl overflow-hidden divide-y divide-border/40">
           <MenuItem icon={SettingsIcon} label="Settings" onClick={() => setView("settings")} />
-          <MenuItem icon={Trophy} label="Leaderboard" onClick={() => setView("leaderboard")} />
           <MenuItem icon={CircleHelp} label="FAQ" onClick={() => setView("faq")} />
           <MenuItem icon={MessageCircle} label="Contact Support" onClick={() => setView("contact")} />
           <MenuItem icon={FileText} label="Legal & Policies" onClick={() => setView("legal")} />
