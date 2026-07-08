@@ -1,0 +1,21 @@
+{
+  "name": "ExBranda — Earn by Promoting Brands",
+  "short_name": "ExBranda",
+  "description": "Turn your Instagram Reels into real income. Earn ₹100 per 10,000 views, withdraw via UPI.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a1f17",
+  "theme_color": "#10b981",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "finance", "social"],
+  "lang": "en-IN",
+  "dir": "ltr"
+}
