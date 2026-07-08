@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db } from "@/lib/firestore";
 import { z } from "zod";
 
 const schema = z.object({

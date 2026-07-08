@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db } from "@/lib/firestore";
 import { MIN_WITHDRAWAL } from "@/lib/types";
 import { z } from "zod";
 
@@ -55,31 +55,24 @@ export async function POST(req: NextRequest) {
 
     // Create withdrawal (pending state). Money is held until admin marks paid.
     // We deduct immediately to prevent double-spending, and refund if rejected.
-    const [withdrawal] = await db.$transaction([
-      db.withdrawal.create({
-        data: {
-          userId: user.id,
-          amount,
-          upiId,
-          status: "pending",
-        },
-      }),
-      db.wallet.update({
-        where: { userId: user.id },
-        data: {
-          balance: { decrement: amount },
-        },
-      }),
-      db.transaction.create({
-        data: {
-          userId: user.id,
-          type: "withdrawal",
-          amount: -amount,
-          status: "pending",
-          description: `Withdrawal request to UPI ${upiId}`,
-        },
-      }),
-    ]);
+    const withdrawal = await db.withdrawal.create({
+      data: {
+        userId: user.id,
+        amount,
+        upiId,
+        status: "pending",
+      },
+    });
+    await db.incrementWallet(user.id, { balance: -amount });
+    await db.transaction.create({
+      data: {
+        userId: user.id,
+        type: "withdrawal",
+        amount: -amount,
+        status: "pending",
+        description: `Withdrawal request to UPI ${upiId}`,
+      },
+    });
 
     await db.auditLog.create({
       data: {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db } from "@/lib/firestore";
 
 // GET /api/admin/users?q=...
 export async function GET(req: NextRequest) {
@@ -11,24 +11,30 @@ export async function GET(req: NextRequest) {
   }
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") || undefined;
-  const where: any = { role: "user" };
-  if (q) {
-    where.OR = [
-      { name: { contains: q } },
-      { fullName: { contains: q } },
-      { email: { contains: q } },
-      { instagramHandle: { contains: q } },
-      { referralCode: { contains: q.toUpperCase() } },
-    ];
-  }
-  const users = await db.user.findMany({
-    where,
+
+  // Firestore doesn't support OR with contains across fields.
+  // Fetch all users with role=user (limited), include wallet, filter in JS.
+  let users = await db.user.findMany({
+    where: { role: "user" },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: { wallet: true },
   });
+
+  if (q) {
+    const ql = q.toLowerCase();
+    users = users.filter(
+      (u: any) =>
+        u.name?.toLowerCase().includes(ql) ||
+        u.fullName?.toLowerCase().includes(ql) ||
+        u.email?.toLowerCase().includes(ql) ||
+        u.instagramHandle?.toLowerCase().includes(ql) ||
+        u.referralCode?.toUpperCase().includes(q.toUpperCase())
+    );
+  }
+
   return NextResponse.json({
-    users: users.map((u) => ({
+    users: users.map((u: any) => ({
       id: u.id,
       email: u.email,
       name: u.name,
@@ -40,7 +46,7 @@ export async function GET(req: NextRequest) {
       referralActive: u.referralActive,
       referralBonusPct: u.referralBonusPct,
       banned: u.banned,
-      badges: u.badges ? JSON.parse(u.badges) : [],
+      badges: u.badges ? (typeof u.badges === "string" ? JSON.parse(u.badges) : u.badges) : [],
       createdAt: u.createdAt,
       walletBalance: u.wallet?.balance || 0,
       lifetimeEarnings: u.wallet?.lifetimeEarnings || 0,

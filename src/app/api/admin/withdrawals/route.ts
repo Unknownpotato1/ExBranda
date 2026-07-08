@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db } from "@/lib/firestore";
 
 // GET /api/admin/withdrawals?status=pending&q=...
 export async function GET(req: NextRequest) {
@@ -19,23 +19,31 @@ export async function GET(req: NextRequest) {
     where.status = status;
   }
   if (q) {
-    where.OR = [
-      { upiId: { contains: q } },
-      { user: { name: { contains: q } } },
-      { user: { instagramHandle: { contains: q } } },
-      { user: { email: { contains: q } } },
-    ];
+    // Firestore doesn't support OR across fields well; we filter in JS after fetch
   }
 
-  const withdrawals = await db.withdrawal.findMany({
+  let withdrawals = await db.withdrawal.findMany({
     where,
     include: { user: true },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
 
+  // Apply search in JS
+  if (q) {
+    const ql = q.toLowerCase();
+    withdrawals = withdrawals.filter(
+      (w: any) =>
+        w.upiId?.toLowerCase().includes(ql) ||
+        w.user?.name?.toLowerCase().includes(ql) ||
+        w.user?.fullName?.toLowerCase().includes(ql) ||
+        w.user?.instagramHandle?.toLowerCase().includes(ql) ||
+        w.user?.email?.toLowerCase().includes(ql)
+    );
+  }
+
   return NextResponse.json({
-    withdrawals: withdrawals.map((w) => ({
+    withdrawals: withdrawals.map((w: any) => ({
       ...w,
       userName: w.user?.fullName || w.user?.name,
       userInstagram: w.user?.instagramHandle,
@@ -60,140 +68,127 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const withdrawal = await db.withdrawal.findUnique({ where: { id }, include: { user: true } });
+  const withdrawal = await db.withdrawal.findUnique({ where: { id } });
   if (!withdrawal) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (withdrawal.status !== "pending") {
     return NextResponse.json({ error: "Already processed" }, { status: 400 });
   }
 
   if (action === "mark_paid") {
-    return await db.$transaction(async (tx) => {
-      const updated = await tx.withdrawal.update({
-        where: { id },
-        data: { status: "paid", paidAt: new Date(), paidBy: admin.id },
+    const updated = await db.withdrawal.update({
+      where: { id },
+      data: { status: "paid", paidAt: new Date(), paidBy: admin.id },
+    });
+    // Money already deducted at request time. Now move it to withdrawnTotal.
+    await db.incrementWallet(withdrawal.userId, { withdrawnTotal: withdrawal.amount });
+    // Update the related transaction to completed
+    await db.transaction.updateMany({
+      where: {
+        userId: withdrawal.userId,
+        type: "withdrawal",
+        amount: -withdrawal.amount,
+        status: "pending",
+      },
+      data: { status: "completed" },
+    });
+    await db.notification.create({
+      data: {
+        userId: withdrawal.userId,
+        title: "Withdrawal Paid 💸",
+        message: `₹${withdrawal.amount.toFixed(2)} has been sent to your UPI (${withdrawal.upiId}).`,
+        type: "withdrawal_paid",
+      },
+    });
+    // Check referral activation: if this is the user's FIRST successful withdrawal
+    const priorPaidList = await db.withdrawal.findMany({
+      where: { userId: withdrawal.userId, status: "paid" },
+    });
+    // Exclude this withdrawal
+    const priorPaid = priorPaidList.filter((w: any) => w.id !== withdrawal.id).length;
+    if (priorPaid === 0) {
+      const referral = await db.referral.findUnique({
+        where: { referredId: withdrawal.userId },
       });
-      // Money already deducted at request time. Now move it to withdrawnTotal.
-      await tx.wallet.update({
-        where: { userId: withdrawal.userId },
-        data: { withdrawnTotal: { increment: withdrawal.amount } },
-      });
-      // Update the related transaction to completed
-      await tx.transaction.updateMany({
-        where: {
-          userId: withdrawal.userId,
-          type: "withdrawal",
-          amount: -withdrawal.amount,
-          status: "pending",
-        },
-        data: { status: "completed" },
-      });
-      await tx.notification.create({
-        data: {
-          userId: withdrawal.userId,
-          title: "Withdrawal Paid 💸",
-          message: `₹${withdrawal.amount.toFixed(2)} has been sent to your UPI (${withdrawal.upiId}).`,
-          type: "withdrawal_paid",
-        },
-      });
-      // Check referral activation: if this is the user's FIRST successful withdrawal
-      // and they were referred by someone, activate the inviter's referral bonus.
-      const priorPaid = await tx.withdrawal.count({
-        where: { userId: withdrawal.userId, status: "paid", id: { not: withdrawal.id } },
-      });
-      if (priorPaid === 0) {
-        const referral = await tx.referral.findUnique({
-          where: { referredId: withdrawal.userId },
+      if (referral && referral.status === "pending") {
+        await db.referral.update({
+          where: { id: referral.id },
+          data: { status: "active", activatedAt: new Date() },
         });
-        if (referral && referral.status === "pending") {
-          await tx.referral.update({
-            where: { id: referral.id },
-            data: { status: "active", activatedAt: new Date() },
+        // Activate bonus on inviter
+        const settings = await db.setting.findMany();
+        const settingsMap: Record<string, string> = {};
+        for (const s of settings) settingsMap[s.key] = s.value;
+        const bonusType = settingsMap["referral_bonus_type"] || "rate_5pct";
+        const bonusValue = parseFloat(settingsMap["referral_bonus_value"] || "0");
+        if (bonusType === "rate_5pct") {
+          await db.user.update({
+            where: { id: referral.referrerId },
+            data: { referralActive: true, referralBonusPct: 5 },
           });
-          // Activate bonus on inviter
-          const settings = await tx.setting.findMany();
-          const settingsMap: Record<string, string> = {};
-          for (const s of settings) settingsMap[s.key] = s.value;
-          const bonusType = settingsMap["referral_bonus_type"] || "rate_5pct";
-          const bonusValue = parseFloat(settingsMap["referral_bonus_value"] || "0");
-          if (bonusType === "rate_5pct") {
-            await tx.user.update({
-              where: { id: referral.referrerId },
-              data: { referralActive: true, referralBonusPct: 5 },
-            });
-          } else if (bonusType === "fixed_inr") {
-            // Award fixed bonus to inviter wallet
-            await tx.wallet.update({
-              where: { userId: referral.referrerId },
-              data: {
-                balance: { increment: bonusValue },
-                lifetimeEarnings: { increment: bonusValue },
-                todayEarnings: { increment: bonusValue },
-              },
-            });
-            await tx.transaction.create({
-              data: {
-                userId: referral.referrerId,
-                type: "referral_bonus",
-                amount: bonusValue,
-                status: "completed",
-                description: `Referral bonus — ${referral.referred?.fullName || "a creator"} completed their first withdrawal`,
-              },
-            });
-          }
-          await tx.notification.create({
+        } else if (bonusType === "fixed_inr") {
+          await db.incrementWallet(referral.referrerId, {
+            balance: bonusValue,
+            lifetimeEarnings: bonusValue,
+            todayEarnings: bonusValue,
+          });
+          await db.transaction.create({
             data: {
               userId: referral.referrerId,
-              title: "Referral Activated 🎉",
-              message:
-                bonusType === "rate_5pct"
-                  ? "Your referral bonus is now active! You earn +5% on every view."
-                  : `Referral bonus of ₹${bonusValue.toFixed(2)} added to your wallet!`,
-              type: "referral_activated",
+              type: "referral_bonus",
+              amount: bonusValue,
+              status: "completed",
+              description: `Referral bonus — a creator completed their first withdrawal`,
             },
           });
         }
+        await db.notification.create({
+          data: {
+            userId: referral.referrerId,
+            title: "Referral Activated 🎉",
+            message:
+              bonusType === "rate_5pct"
+                ? "Your referral bonus is now active! You earn +5% on every view."
+                : `Referral bonus of ₹${bonusValue.toFixed(2)} added to your wallet!`,
+            type: "referral_activated",
+          },
+        });
       }
-      await tx.auditLog.create({
-        data: {
-          actorId: admin.id,
-          action: "withdrawal_marked_paid",
-          target: withdrawal.id,
-        },
-      });
-      return NextResponse.json({ withdrawal: updated });
+    }
+    await db.auditLog.create({
+      data: {
+        actorId: admin.id,
+        action: "withdrawal_marked_paid",
+        target: withdrawal.id,
+      },
     });
+    return NextResponse.json({ withdrawal: updated });
   } else {
     // Reject — refund the held amount
-    return await db.$transaction(async (tx) => {
-      const updated = await tx.withdrawal.update({
-        where: { id },
-        data: { status: "rejected", rejectedReason: rejectedReason || "Rejected by admin" },
-      });
-      await tx.wallet.update({
-        where: { userId: withdrawal.userId },
-        data: { balance: { increment: withdrawal.amount } },
-      });
-      await tx.transaction.updateMany({
-        where: {
-          userId: withdrawal.userId,
-          type: "withdrawal",
-          amount: -withdrawal.amount,
-          status: "pending",
-        },
-        data: { status: "rejected" },
-      });
-      await tx.notification.create({
-        data: {
-          userId: withdrawal.userId,
-          title: "Withdrawal Rejected",
-          message: rejectedReason || "Your withdrawal request was rejected. Amount refunded to wallet.",
-          type: "withdrawal_approved",
-        },
-      });
-      await tx.auditLog.create({
-        data: { actorId: admin.id, action: "withdrawal_rejected", target: withdrawal.id },
-      });
-      return NextResponse.json({ withdrawal: updated });
+    const updated = await db.withdrawal.update({
+      where: { id },
+      data: { status: "rejected", rejectedReason: rejectedReason || "Rejected by admin" },
     });
+    await db.incrementWallet(withdrawal.userId, { balance: withdrawal.amount });
+    await db.transaction.updateMany({
+      where: {
+        userId: withdrawal.userId,
+        type: "withdrawal",
+        amount: -withdrawal.amount,
+        status: "pending",
+      },
+      data: { status: "rejected" },
+    });
+    await db.notification.create({
+      data: {
+        userId: withdrawal.userId,
+        title: "Withdrawal Rejected",
+        message: rejectedReason || "Your withdrawal request was rejected. Amount refunded to wallet.",
+        type: "withdrawal_approved",
+      },
+    });
+    await db.auditLog.create({
+      data: { actorId: admin.id, action: "withdrawal_rejected", target: withdrawal.id },
+    });
+    return NextResponse.json({ withdrawal: updated });
   }
 }

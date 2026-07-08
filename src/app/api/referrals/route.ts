@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db } from "@/lib/firestore";
 
 // GET /api/referrals — current user's referral stats and history
 export async function GET() {

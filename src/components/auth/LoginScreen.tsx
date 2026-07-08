@@ -5,36 +5,83 @@ import { motion } from "framer-motion";
 import { Logo } from "@/components/common/Logo";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
-import { ArrowRight, Shield, Sparkles, TrendingUp, Users, Loader } from "lucide-react";
+import { ArrowRight, Shield, Sparkles, TrendingUp, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { isFirebaseConfigured, signInWithGoogle } from "@/lib/firebase-client";
 
 export function LoginScreen() {
   const setUser = useAppStore((s) => s.setUser);
   const setWallet = useAppStore((s) => s.setWallet);
   const setView = useAppStore((s) => s.setView);
   const pendingReferralCode = useAppStore((s) => s.pendingReferralCode);
-  const [loading, setLoading] = React.useState<"user" | "admin" | null>(null);
+  const [loading, setLoading] = React.useState<"google" | "admin" | "demo" | null>(null);
 
-  const login = async (email: string, role: "user" | "admin") => {
-    setLoading(role);
+  const firebaseReady = isFirebaseConfigured();
+
+  // Finalize login — fetch session and redirect
+  const finalizeLogin = async () => {
+    const me = await fetch("/api/auth/me");
+    const meJ = await me.json();
+    if (!meJ.user) throw new Error("Session not created");
+    setUser(meJ.user);
+    setWallet(meJ.wallet);
+    if (meJ.user.role === "admin") setView("admin");
+    else setView("dashboard");
+    toast.success(`Welcome ${meJ.user.name?.split(" ")[0] || "back"}!`);
+  };
+
+  // === Real Google Sign-In via Firebase Auth ===
+  const loginWithGoogle = async () => {
+    setLoading("google");
+    try {
+      const { idToken } = await signInWithGoogle();
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Login failed");
+      await finalizeLogin();
+    } catch (e: any) {
+      console.error("Google login failed:", e);
+      toast.error(e.message || "Google Sign-In failed");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  // === Mock admin login (dev/demo) ===
+  const loginAdminMock = async () => {
+    setLoading("admin");
     try {
       const r = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ email: "admin@exbranda.com", role: "admin" }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Login failed");
-      setUser(j.user);
-      // Fetch wallet
-      const me = await fetch("/api/auth/me");
-      const meJ = await me.json();
-      setWallet(meJ.wallet);
-      // If user is onboarded go to dashboard, else onboarding view (handled by parent)
-      if (j.user.role === "admin") setView("admin");
-      else if (j.user.fullName && j.user.instagramHandle) setView("dashboard");
-      else setView("dashboard");
-      toast.success(`Welcome ${j.user.name?.split(" ")[0] || "back"}!`);
+      await finalizeLogin();
+    } catch (e: any) {
+      toast.error(e.message || "Login failed");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  // === Mock creator login (dev/demo — only when Firebase isn't configured) ===
+  const loginCreatorMock = async () => {
+    setLoading("demo");
+    try {
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "creator@exbranda.com", role: "user" }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Login failed");
+      await finalizeLogin();
     } catch (e: any) {
       toast.error(e.message || "Login failed");
     } finally {
@@ -107,11 +154,11 @@ export function LoginScreen() {
             <Button
               size="lg"
               className="w-full h-13 py-3.5 text-base font-medium rounded-2xl btn-shine glow-primary"
-              onClick={() => login("creator@exbranda.com", "user")}
+              onClick={loginWithGoogle}
               disabled={!!loading}
             >
-              {loading === "user" ? (
-                <Loader className="h-4.5 w-4.5 animate-spin" />
+              {loading === "google" ? (
+                <Loader2 className="h-4.5 w-4.5 animate-spin" />
               ) : (
                 <>
                   <GoogleIcon className="h-5 w-5" />
@@ -120,35 +167,51 @@ export function LoginScreen() {
                 </>
               )}
             </Button>
-            <p className="text-center text-[11px] text-muted-foreground">
-              Demo mode — click to sign in as <span className="font-medium">Aarav (creator)</span>
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1 h-11 rounded-xl"
-                onClick={() => login("admin@exbranda.com", "admin")}
-                disabled={!!loading}
-              >
-                {loading === "admin" ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Shield className="h-4 w-4 mr-1.5 text-amber-500" />
-                    Admin login
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                className="flex-1 h-11 rounded-xl"
-                onClick={() => login(`new${Date.now()}@exbranda.com`, "user")}
-                disabled={!!loading}
-              >
-                <Sparkles className="h-4 w-4 mr-1.5" />
-                New account
-              </Button>
-            </div>
+
+            {firebaseReady ? (
+              <p className="text-center text-[11px] text-muted-foreground">
+                Secured by Firebase Authentication • Your Google credentials never touch our servers
+              </p>
+            ) : (
+              <>
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Firebase not configured — using demo mode
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-11 rounded-xl"
+                    onClick={loginCreatorMock}
+                    disabled={!!loading}
+                  >
+                    {loading === "demo" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-1.5" />
+                        Demo creator
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-11 rounded-xl"
+                    onClick={loginAdminMock}
+                    disabled={!!loading}
+                  >
+                    {loading === "admin" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Shield className="h-4 w-4 mr-1.5 text-amber-500" />
+                        Admin login
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+
             {pendingReferralCode && (
               <p className="text-center text-[11px] text-primary">
                 Referred by {pendingReferralCode} — your bonus will activate after first withdrawal.
@@ -165,7 +228,7 @@ export function LoginScreen() {
           >
             By continuing, you agree to our Terms & Privacy Policy.
             <br />
-            Powered by Google Sign-In • No password required.
+            {firebaseReady ? "Powered by Firebase Auth + Google Sign-In" : "Demo mode — no password required"}
           </motion.div>
         </main>
       </div>

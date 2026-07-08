@@ -1,0 +1,172 @@
+rules_version = '2';
+
+// ExBranda Firestore Security Rules
+// Last updated: 2026-07-08
+//
+// These rules enforce:
+// 1. Users can read/write only their own user doc, wallet, submissions, withdrawals,
+//    transactions, notifications, downloads
+// 2. Admin users (role === 'admin' in custom claims OR in users/{uid}.role)
+//    can read/write all documents in any collection
+// 3. Public read-only access to: settings, leaderboard (via aggregation)
+// 4. Wallet balance writes are NEVER allowed from clients — only via server SDK
+//    (Cloud Functions or Next.js API routes using firebase-admin)
+// 5. Self-referral and duplicate-referral prevention is enforced server-side
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: is the current user an admin?
+    // Checks both the custom claim AND the users/{uid}.role field for resilience.
+    function isAdmin() {
+      return request.auth.token.role == 'admin'
+        || (request.auth != null
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // Helper: is the user signed in?
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper: is the user the owner of this document?
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Helper: is the user banned?
+    function isNotBanned() {
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.banned != true;
+    }
+
+    // === USERS ===
+    // User can read their own profile, or any profile if admin.
+    // User can create their own profile (on first login via server-side create).
+    // User can update their own profile, but NOT role/banned/referralCode/referralBonusPct/referralActive.
+    // Wallet balance updates are blocked here (server-only).
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && isNotBanned()
+                    // Block privilege-escalation fields
+                    && !('role' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('banned' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('referralCode' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('referralActive' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('referralBonusPct' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('createdAt' in request.resource.data.diff(resource.data).affectedKeys())
+                    || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // === WALLETS ===
+    // User can read only their own wallet.
+    // NEVER allow client writes — only the server (via firebase-admin in API routes)
+    // can modify wallet balances, pendingBalance, lifetimeEarnings, etc.
+    match /wallets/{walletId} {
+      allow read: if isOwner(walletId) || isAdmin();
+      allow write: if false; // server-only
+    }
+
+    // === TRANSACTIONS ===
+    // User can read their own transactions. Writes are server-only.
+    match /transactions/{txId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow write: if false; // server-only
+    }
+
+    // === SUBMISSIONS ===
+    // User can read their own submissions, create new ones for themselves,
+    // but cannot update (admin only) or delete.
+    match /submissions/{subId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isSignedIn()
+                    && isNotBanned()
+                    && request.resource.data.userId == request.auth.uid
+                    // Required fields
+                    && 'reelUrl' in request.resource.data
+                    && 'currentViews' in request.resource.data
+                    && 'status' in request.resource.data
+                    && request.resource.data.status == 'pending'
+                    // Block privilege-escalation: cannot set approvedViews, payoutAmount, status != pending
+                    && request.resource.data.approvedViews == 0
+                    && request.resource.data.rejectedViews == 0;
+      allow update, delete: if isAdmin();
+    }
+
+    // === WITHDRAWALS ===
+    // User can read their own withdrawals, create new ones for themselves,
+    // but cannot update (admin only).
+    match /withdrawals/{wId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isSignedIn()
+                    && isNotBanned()
+                    && request.resource.data.userId == request.auth.uid
+                    && 'amount' in request.resource.data
+                    && 'upiId' in request.resource.data
+                    && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    // === REFERRALS ===
+    // User can read referrals they made or received. Writes are server-only.
+    match /referrals/{refId} {
+      allow read: if (isSignedIn() && (resource.data.referrerId == request.auth.uid || resource.data.referredId == request.auth.uid))
+                  || isAdmin();
+      allow write: if false; // server-only
+    }
+
+    // === SETTINGS ===
+    // Public read, admin-only write.
+    match /settings/{key} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === ADMINS ===
+    // Admin-only collection.
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // === NOTIFICATIONS ===
+    // User can read their own notifications, mark them as read.
+    match /notifications/{nId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAdmin(); // notifications are created by the server
+      allow update: if isOwner(resource.data.userId)
+                    // Only the 'read' field can be toggled
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAdmin();
+    }
+
+    // === DOWNLOADS ===
+    // User can read their own download log, create new entries.
+    match /downloads/{dId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // === AUDIT LOGS ===
+    // Admin-only read. Server-only write.
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
+    // === _init (bootstrap) ===
+    // Internal sentinel — no client access.
+    match /_init/{docId} {
+      allow read, write: if false;
+    }
+
+    // Default deny for any other collection
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db } from "@/lib/firestore";
 import { LOGO_ASSETS, LogoAssetType } from "@/lib/cloudinary";
 
 const VALID_TYPES: LogoAssetType[] = ["png", "transparent_png", "svg", "zip"];
