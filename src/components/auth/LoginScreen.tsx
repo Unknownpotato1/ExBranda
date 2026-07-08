@@ -168,49 +168,46 @@ export function LoginScreen() {
               )}
             </Button>
 
-            {firebaseReady ? (
+            {firebaseReady && (
               <p className="text-center text-[11px] text-muted-foreground">
                 Secured by Firebase Authentication • Your Google credentials never touch our servers
               </p>
-            ) : (
-              <>
-                <p className="text-center text-[11px] text-muted-foreground">
-                  Firebase not configured — using demo mode
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-11 rounded-xl"
-                    onClick={loginCreatorMock}
-                    disabled={!!loading}
-                  >
-                    {loading === "demo" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-1.5" />
-                        Demo creator
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-11 rounded-xl"
-                    onClick={loginAdminMock}
-                    disabled={!!loading}
-                  >
-                    {loading === "admin" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Shield className="h-4 w-4 mr-1.5 text-amber-500" />
-                        Admin login
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </>
             )}
+
+            {/* Always show demo buttons as fallback (useful before Google Sign-In
+                provider is enabled in Firebase Console) */}
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1 h-11 rounded-xl"
+                onClick={loginCreatorMock}
+                disabled={!!loading}
+              >
+                {loading === "demo" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-1.5" />
+                    Demo creator
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-11 rounded-xl"
+                onClick={loginAdminMock}
+                disabled={!!loading}
+              >
+                {loading === "admin" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4 mr-1.5 text-amber-500" />
+                    Admin login
+                  </>
+                )}
+              </Button>
+            </div>
 
             {pendingReferralCode && (
               <p className="text-center text-[11px] text-primary">
