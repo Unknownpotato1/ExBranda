@@ -5,28 +5,30 @@
 
 import { BASE_RATE_PER_10K, REFERRAL_BONUS_PCT } from "./types";
 
-export function getCurrentRate(referralBonusPct: number): number {
-  // e.g. 5% bonus on 100 = 105
-  return BASE_RATE_PER_10K * (1 + referralBonusPct / 100);
+export function getCurrentRate(referralBonusPct: number | undefined | null): number {
+  const pct = typeof referralBonusPct === "number" && !isNaN(referralBonusPct) ? referralBonusPct : 0;
+  return BASE_RATE_PER_10K * (1 + pct / 100);
 }
 
-export function calculatePayout(newViews: number, referralBonusPct: number): number {
+export function calculatePayout(newViews: number, referralBonusPct: number | undefined | null): number {
   const rate = getCurrentRate(referralBonusPct);
-  // Support decimals internally, but round display elsewhere
-  return (newViews / 10000) * rate;
+  const views = typeof newViews === "number" && !isNaN(newViews) ? newViews : 0;
+  return (views / 10000) * rate;
 }
 
-export function formatINR(amount: number): string {
+export function formatINR(amount: number | undefined | null): string {
+  const n = typeof amount === "number" && !isNaN(amount) ? amount : 0;
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(n);
 }
 
-export function formatNumber(n: number): string {
-  return new Intl.NumberFormat("en-IN").format(n);
+export function formatNumber(n: number | undefined | null): string {
+  const v = typeof n === "number" && !isNaN(n) ? n : 0;
+  return new Intl.NumberFormat("en-IN").format(v);
 }
 
 export function formatViews(n: number): string {

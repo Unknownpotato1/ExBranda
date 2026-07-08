@@ -1,6 +1,5 @@
 // Cloudinary client — server-side only
 // Used for serving logo assets and (optionally) uploading user-generated content.
-// In production, logos are stored as versioned Cloudinary URLs.
 
 const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || "drlmgjt6p";
 const API_KEY = process.env.CLOUDINARY_API_KEY;
@@ -8,13 +7,15 @@ const API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
 const BASE = `https://res.cloudinary.com/${CLOUD_NAME}`;
 
-// Public logo asset URLs (upload these to Cloudinary once — see README)
-// Until uploaded, the app falls back to client-side generated logos.
+// The ExBranda logo asset (hosted on Cloudinary)
+export const LOGO_URL = `${BASE}/video/upload/v1783516278/Screenrecorder-2026-07-08-18-07-20-5251_s5cpny.mp4`;
+
+// Legacy asset map (kept for backward compat with /api/downloads/asset)
 export const LOGO_ASSETS = {
-  png: `${BASE}/image/upload/v1/exbranda/logo.png`,
-  transparent_png: `${BASE}/image/upload/v1/exbranda/logo-transparent.png`,
-  svg: `${BASE}/image/upload/v1/exbranda/logo.svg`,
-  zip: `${BASE}/image/upload/v1/exbranda/brand-kit.zip`,
+  png: LOGO_URL,
+  transparent_png: LOGO_URL,
+  svg: LOGO_URL,
+  zip: LOGO_URL,
 } as const;
 
 export type LogoAssetType = keyof typeof LOGO_ASSETS;
