@@ -38,6 +38,115 @@ function reviver(data: any): any {
   return out;
 }
 
+// Helper: count docs in a collection, using only the first where condition
+// for the Firestore query (to avoid composite index requirements) and
+// filtering the rest in JS.
+async function countWithJsFilter(collection: any, where?: DocData): Promise<number> {
+  if (!where || Object.keys(where).length === 0) {
+    const snap = await collection.count().get();
+    return snap.data().count;
+  }
+  const entries = Object.entries(where);
+  // Build a query with just the first condition
+  const [k0, v0] = entries[0];
+  let op = "==";
+  let val: any = v0;
+  if (v0 && typeof v0 === "object" && !(v0 instanceof Date)) {
+    if ("gte" in v0) { op = ">="; val = v0.gte; }
+    else if ("lt" in v0) { op = "<"; val = v0.lt; }
+    else if ("in" in v0) { op = "in"; val = v0.in; }
+  }
+  let q: any = collection.where(k0, op, val);
+  if (entries.length === 1) {
+    const snap = await q.count().get();
+    return snap.data().count;
+  }
+  // Multiple conditions — fetch all matching the first, filter the rest in JS
+  const snap = await q.get();
+  let count = 0;
+  snap.forEach((d: any) => {
+    const data = d.data();
+    let match = true;
+    for (let i = 1; i < entries.length; i++) {
+      const [k, v] = entries[i];
+      if (v instanceof Date) {
+        const dv = data[k];
+        const dvDate = dv && dv.toDate ? dv.toDate() : dv ? new Date(dv) : null;
+        match = match && dvDate && dvDate.getTime() === v.getTime();
+      } else if (v && typeof v === "object" && "gte" in v) {
+        const dv = data[k];
+        const dvDate = dv && dv.toDate ? dv.toDate() : dv ? new Date(dv) : null;
+        match = match && dvDate && dvDate.getTime() >= v.gte.getTime();
+      } else if (v && typeof v === "object" && "lt" in v) {
+        const dv = data[k];
+        const dvDate = dv && dv.toDate ? dv.toDate() : dv ? new Date(dv) : null;
+        match = match && dvDate && dvDate.getTime() < v.lt.getTime();
+      } else if (v && typeof v === "object" && "in" in v) {
+        match = match && v.in.includes(data[k]);
+      } else {
+        match = match && data[k] === v;
+      }
+    }
+    if (match) count++;
+  });
+  return count;
+}
+
+// Helper: aggregate SUM of a field, using only the first where condition for the
+// Firestore query (to avoid composite index requirements) and filtering in JS.
+async function aggregateWithJsFilter(collection: any, where: DocData | undefined, sumFields: string[]): Promise<{ _sum: any }> {
+  const result: any = {};
+  for (const f of sumFields) result[f] = 0;
+  if (!where || Object.keys(where).length === 0) {
+    const snap = await collection.get();
+    snap.forEach((d: any) => {
+      const data = d.data();
+      for (const f of sumFields) {
+        if (typeof data[f] === "number") result[f] += data[f];
+      }
+    });
+    return { _sum: result };
+  }
+  const entries = Object.entries(where);
+  const [k0, v0] = entries[0];
+  let op = "==";
+  let val: any = v0;
+  if (v0 && typeof v0 === "object" && !(v0 instanceof Date)) {
+    if ("gte" in v0) { op = ">="; val = v0.gte; }
+    else if ("lt" in v0) { op = "<"; val = v0.lt; }
+  }
+  let q: any = collection.where(k0, op, val);
+  const snap = await q.get();
+  snap.forEach((d: any) => {
+    const data = d.data();
+    let match = true;
+    for (let i = 1; i < entries.length; i++) {
+      const [k, v] = entries[i];
+      if (v instanceof Date) {
+        const dv = data[k];
+        const dvDate = dv && dv.toDate ? dv.toDate() : dv ? new Date(dv) : null;
+        match = match && dvDate && dvDate.getTime() === v.getTime();
+      } else if (v && typeof v === "object" && "gte" in v) {
+        const dv = data[k];
+        const dvDate = dv && dv.toDate ? dv.toDate() : dv ? new Date(dv) : null;
+        match = match && dvDate && dvDate.getTime() >= v.gte.getTime();
+      } else if (v && typeof v === "object" && "lt" in v) {
+        const dv = data[k];
+        const dvDate = dv && dv.toDate ? dv.toDate() : dv ? new Date(dv) : null;
+        match = match && dvDate && dvDate.getTime() < v.lt.getTime();
+      } else {
+        match = match && data[k] === v;
+      }
+    }
+    if (match) {
+      for (const f of sumFields) {
+        if (typeof data[f] === "number") result[f] += data[f];
+      }
+    }
+  });
+  return { _sum: result };
+}
+
 // === USERS ===
 const users = {
   async findUnique({ where, include }: { where: { id?: string; email?: string; referralCode?: string }; include?: DocData }): Promise<any | null> {
@@ -137,16 +246,7 @@ const users = {
 
   async count({ where }: { where?: DocData } = {}): Promise<number> {
     const db = getDb();
-    let q: any = db.collection("users");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        if (v instanceof Date) q = q.where(k, "==", v);
-        else if (v && typeof v === "object" && "gte" in v) q = q.where(k, ">=", v.gte);
-        else q = q.where(k, "==", v);
-      }
-    }
-    const snap = await q.count().get();
-    return snap.data().count;
+    return countWithJsFilter(db.collection("users"), where);
   },
 
   async delete({ where }: { where: { id: string } }): Promise<void> {
@@ -327,44 +427,12 @@ const submissions = {
 
   async count({ where }: { where?: DocData } = {}): Promise<number> {
     const db = getDb();
-    let q: any = db.collection("submissions");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        if (v instanceof Date) q = q.where(k, "==", v);
-        else if (v && typeof v === "object" && "gte" in v) q = q.where(k, ">=", v.gte);
-        else if (v && typeof v === "object" && "lt" in v) q = q.where(k, "<", v.lt);
-        else q = q.where(k, "==", v);
-      }
-    }
-    const snap = await q.count().get();
-    return snap.data().count;
+    return countWithJsFilter(db.collection("submissions"), where);
   },
 
   async aggregate({ where, _sum }: { where?: DocData; _sum?: any }): Promise<{ _sum: any }> {
-    // Firestore doesn't have native SUM. We read all matching docs and sum in JS.
     const db = getDb();
-    let q: any = db.collection("submissions");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        if (v instanceof Date) q = q.where(k, "==", v);
-        else if (v && typeof v === "object" && "gte" in v) q = q.where(k, ">=", v.gte);
-        else if (v && typeof v === "object" && "lt" in v) q = q.where(k, "<", v.lt);
-        else q = q.where(k, "==", v);
-      }
-    }
-    const snap = await q.get();
-    const result: any = {};
-    if (_sum) {
-      for (const field of Object.keys(_sum)) {
-        let total = 0;
-        snap.forEach((d) => {
-          const val = (d.data() as any)[field];
-          if (typeof val === "number") total += val;
-        });
-        result[field] = total;
-      }
-    }
-    return { _sum: result };
+    return aggregateWithJsFilter(db.collection("submissions"), where, _sum ? Object.keys(_sum) : []);
   },
 };
 
@@ -447,43 +515,12 @@ const withdrawals = {
 
   async count({ where }: { where?: DocData } = {}): Promise<number> {
     const db = getDb();
-    let q: any = db.collection("withdrawals");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        if (v instanceof Date) q = q.where(k, "==", v);
-        else if (v && typeof v === "object" && "gte" in v) q = q.where(k, ">=", v.gte);
-        else if (v && typeof v === "object" && "lt" in v) q = q.where(k, "<", v.lt);
-        else q = q.where(k, "==", v);
-      }
-    }
-    const snap = await q.count().get();
-    return snap.data().count;
+    return countWithJsFilter(db.collection("withdrawals"), where);
   },
 
   async aggregate({ where, _sum }: { where?: DocData; _sum?: any }): Promise<{ _sum: any }> {
     const db = getDb();
-    let q: any = db.collection("withdrawals");
-    if (where) {
-      for (const [k, v] of Object.entries(where)) {
-        if (v instanceof Date) q = q.where(k, "==", v);
-        else if (v && typeof v === "object" && "gte" in v) q = q.where(k, ">=", v.gte);
-        else if (v && typeof v === "object" && "lt" in v) q = q.where(k, "<", v.lt);
-        else q = q.where(k, "==", v);
-      }
-    }
-    const snap = await q.get();
-    const result: any = {};
-    if (_sum) {
-      for (const field of Object.keys(_sum)) {
-        let total = 0;
-        snap.forEach((d) => {
-          const val = (d.data() as any)[field];
-          if (typeof val === "number") total += val;
-        });
-        result[field] = total;
-      }
-    }
-    return { _sum: result };
+    return aggregateWithJsFilter(db.collection("withdrawals"), where, _sum ? Object.keys(_sum) : []);
   },
 };
 
