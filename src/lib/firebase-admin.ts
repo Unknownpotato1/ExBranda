@@ -1,18 +1,19 @@
 // Firebase Admin SDK — server-side only.
 // Reads credentials from FIREBASE_SERVICE_ACCOUNT env var (JSON string)
 // or from GOOGLE_APPLICATION_CREDENTIALS file path.
+//
+// NOTE: firebase-admin v13 uses `export =` (CommonJS), so we import the
+// default namespace as `admin` and access admin.initializeApp, admin.credential, etc.
 
-import { initializeApp, getApps, cert, type App } from "firebase-admin";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { getAuth, type Auth } from "firebase-admin/auth";
+import admin from "firebase-admin";
 
-let _app: App | null = null;
-let _db: Firestore | null = null;
-let _auth: Auth | null = null;
+let _app: admin.app.App | null = null;
+let _db: admin.firestore.Firestore | null = null;
+let _auth: admin.auth.Auth | null = null;
 
-function getApp(): App {
+function getApp(): admin.app.App {
   if (_app) return _app;
-  const existing = getApps();
+  const existing = admin.apps;
   if (existing.length) {
     _app = existing[0];
     return _app;
@@ -23,8 +24,8 @@ function getApp(): App {
   if (saEnv) {
     try {
       const sa = JSON.parse(saEnv);
-      _app = initializeApp({
-        credential: cert(sa),
+      _app = admin.initializeApp({
+        credential: admin.credential.cert(sa),
         projectId: sa.project_id,
         storageBucket: sa.storageBucket || `${sa.project_id}.appspot.com`,
       });
@@ -35,20 +36,20 @@ function getApp(): App {
   }
 
   // Fall back to GOOGLE_APPLICATION_CREDENTIALS file path (local dev)
-  _app = initializeApp({
+  _app = admin.initializeApp({
     projectId: process.env.FIREBASE_PROJECT_ID || "exbranda",
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "exbranda.firebasestorage.app",
   });
   return _app;
 }
 
-export function getDb(): Firestore {
-  if (!_db) _db = getFirestore(getApp());
+export function getDb(): admin.firestore.Firestore {
+  if (!_db) _db = getApp().firestore();
   return _db;
 }
 
-export function getAuthAdmin(): Auth {
-  if (!_auth) _auth = getAuth(getApp());
+export function getAuthAdmin(): admin.auth.Auth {
+  if (!_auth) _auth = getApp().auth();
   return _auth;
 }
 

@@ -7,7 +7,7 @@
 // settings, admins, notifications, downloads, auditLogs
 
 import { getDb } from "./firebase-admin";
-import type { FirebaseFirestore } from "firebase-admin/firestore";
+import type { FirebaseFirestore } from "firebase-admin";
 
 // Helpers
 type DocData = Record<string, any>;

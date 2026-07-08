@@ -8,23 +8,21 @@
 
 import * as fs from "fs";
 import * as crypto from "crypto";
-import { initializeApp, cert, getApps, type App } from "firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
+import admin from "firebase-admin";
 
 const SA_PATH = process.argv[2] || "/tmp/firebase-sa.json";
 const serviceAccount = JSON.parse(fs.readFileSync(SA_PATH, "utf-8"));
 const PROJECT_ID = serviceAccount.project_id;
 
 // Initialize Admin SDK
-const existing = getApps();
-const app: App = existing.length ? existing[0] : initializeApp({
-  credential: cert(serviceAccount),
+const existing = admin.apps;
+const app: admin.app.App = existing.length ? existing[0] : admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
   projectId: PROJECT_ID,
 });
 
-const db = getFirestore(app);
-const authAdmin = getAuth(app);
+const db = app.firestore();
+const authAdmin = app.auth();
 
 // Get OAuth2 access token by signing a JWT with the service account private key
 // and exchanging it at the token endpoint. This is the standard Google service
