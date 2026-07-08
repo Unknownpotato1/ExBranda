@@ -47,7 +47,8 @@ const FILES = [
   },
 ] as const;
 
-// Generate a small PNG/SVG blob in-browser — production: replace with Cloudinary URL.
+// Generate a small PNG/SVG blob in-browser — used as a fallback when Cloudinary assets
+// are not yet uploaded. In production, prefer the Cloudinary-hosted assets.
 function generateFile(type: string): { blob: Blob; filename: string } {
   if (type === "svg") {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="512" height="512">
@@ -222,7 +223,7 @@ export function DownloadLogoView() {
         </div>
 
         <p className="text-center text-[11px] text-muted-foreground">
-          Production note: In production, files are served from Cloudinary with versioned URLs.
+          Files are served from Cloudinary in production. Fallback to client-side generation when assets aren't uploaded yet.
         </p>
       </div>
     </div>
