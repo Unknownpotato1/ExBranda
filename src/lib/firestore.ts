@@ -6,7 +6,7 @@
 // users, wallets, transactions, submissions, withdrawals, referrals,
 // settings, admins, notifications, downloads, auditLogs
 
-import { getDb } from "./firebase-admin";
+import { getDb, FieldValue } from "./firebase-admin";
 import type { FirebaseFirestore } from "firebase-admin";
 
 // Helpers
@@ -463,7 +463,7 @@ async function atomicIncrement(collection: string, docId: string, fields: Record
   const ref = db.collection(collection).doc(docId);
   const update: DocData = {};
   for (const [k, v] of Object.entries(fields)) {
-    update[k] = db.firestore.FieldValue.increment(v);
+    update[k] = FieldValue.increment(v);
   }
   update.updatedAt = new Date();
   await ref.update(update);

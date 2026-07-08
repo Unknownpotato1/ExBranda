@@ -53,6 +53,9 @@ export function getAuthAdmin(): admin.auth.Auth {
   return _auth;
 }
 
+// Export FieldValue so callers can use increment, serverTimestamp, etc.
+export const FieldValue = admin.firestore.FieldValue;
+
 // Server-side only — used by /api/auth/login to verify Firebase ID tokens
 export async function verifyIdToken(idToken: string) {
   const auth = getAuthAdmin();
