@@ -1,16 +1,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Vercel deployment — standard output mode (Vercel handles bundling)
-  // For self-hosted Docker/standalone, set output: "standalone"
+  // Vercel deployment — standard output mode
   output: undefined,
   typescript: {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  // Prisma generates its client into node_modules — make sure Vercel includes it
-  serverExternalPackages: ["@prisma/client", "@node-rs/argon2"],
-  // Make sure SQLite native binary is bundled
+  // Mark packages that should NOT be bundled by turbopack — they should
+  // remain as external requires (Vercel will resolve them from node_modules)
+  serverExternalPackages: [
+    "@prisma/client",
+    "firebase-admin",
+    "firebase-admin/firestore",
+    "firebase-admin/auth",
+    "@firebase/firestore",
+    "@grpc/grpc-js",
+    "google-auth-library",
+    "googleapis",
+    "gcx",
+  ],
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
