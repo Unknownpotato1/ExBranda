@@ -54,7 +54,7 @@ export function WalletView() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-primary/90 via-primary to-emerald-700 text-white shadow-xl shadow-primary/30"
+            className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-primary/90 via-primary to-blue-800 text-white shadow-xl shadow-primary/30"
           >
             <div className="absolute -top-12 -right-8 h-40 w-40 rounded-full bg-white opacity-10" />
             <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-white opacity-10" />

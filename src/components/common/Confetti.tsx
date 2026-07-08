@@ -8,7 +8,7 @@ interface ConfettiProps {
   onDone?: () => void;
 }
 
-const COLORS = ["#10b981", "#06b6d4", "#84cc16", "#f59e0b", "#ec4899", "#8b5cf6"];
+const COLORS = ["#3b82f6", "#2563eb", "#7c3aed", "#06b6d4", "#8b5cf6", "#0ea5e9"];
 
 export function Confetti({ active, onDone }: ConfettiProps) {
   const [pieces, setPieces] = React.useState<

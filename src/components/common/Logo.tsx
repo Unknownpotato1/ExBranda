@@ -20,9 +20,9 @@ export function Logo({ className, size = 32, showText = true }: LogoProps) {
       >
         <defs>
           <linearGradient id="exb-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#10b981" />
-            <stop offset="0.6" stopColor="#06b6d4" />
-            <stop offset="1" stopColor="#84cc16" />
+            <stop stopColor="#3b82f6" />
+            <stop offset="0.5" stopColor="#2563eb" />
+            <stop offset="1" stopColor="#7c3aed" />
           </linearGradient>
         </defs>
         <rect x="2" y="2" width="44" height="44" rx="13" fill="url(#exb-grad)" />

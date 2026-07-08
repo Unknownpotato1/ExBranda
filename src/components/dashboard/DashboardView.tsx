@@ -104,7 +104,7 @@ export function DashboardView() {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-primary/90 via-primary to-emerald-700 text-white shadow-xl shadow-primary/30"
+            className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-primary/90 via-primary to-blue-800 text-white shadow-xl shadow-primary/30"
           >
             {/* Decorative pattern */}
             <div className="absolute inset-0 opacity-20 pointer-events-none">
