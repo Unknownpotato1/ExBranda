@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/appStore";
 import { BackHeader } from "@/components/submissions/SubmitReelView";
 import { toast } from "sonner";
-import { Download, Loader, CircleCheck, X, Maximize2 } from "lucide-react";
+import { Download, Loader, CircleCheck, X, Image as ImageIcon } from "lucide-react";
 
 // The ExBranda logo — hosted on Cloudinary
 const LOGO_URL =
@@ -84,30 +84,7 @@ export function DownloadLogoView() {
           </p>
         </motion.div>
 
-        {/* Reference image — tap to open fullscreen */}
-        <div className="glass rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="text-xs font-semibold">How it should look</div>
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Maximize2 className="h-3 w-3" />
-              Tap to enlarge
-            </span>
-          </div>
-          <button
-            onClick={() => setFullscreen(true)}
-            className="block w-full rounded-xl overflow-hidden ring-1 ring-border/60 hover:ring-primary/40 transition-all active:scale-[0.98]"
-            aria-label="Open reference image in full screen"
-          >
-            <img
-              src={REFERENCE_IMAGE}
-              alt="Reference — ExBranda logo placed in a reel"
-              className="w-full h-auto"
-              loading="lazy"
-            />
-          </button>
-        </div>
-
-        {/* Usage guidelines */}
+        {/* Usage guidelines with inline "See reference" link */}
         <div className="glass rounded-2xl p-4">
           <div className="text-xs font-semibold mb-2.5">Usage Guidelines</div>
           <ul className="space-y-1.5 text-xs text-muted-foreground">
@@ -119,30 +96,41 @@ export function DownloadLogoView() {
               <CircleCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
               Don't modify, recolor, or stretch the logo
             </li>
-            <li className="flex gap-2">
+            <li className="flex gap-2 items-start">
               <CircleCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-              See the reference image above for placement
+              <span>
+                See{" "}
+                <button
+                  onClick={() => setFullscreen(true)}
+                  className="inline-flex items-center gap-1 text-primary font-medium hover:underline"
+                >
+                  <ImageIcon className="h-3 w-3" />
+                  reference image
+                </button>{" "}
+                for placement
+              </span>
             </li>
           </ul>
         </div>
 
-        {/* Download button */}
+        {/* Download button — distinct primary button, not a card */}
         <motion.button
           whileTap={{ scale: downloading ? 1 : 0.97 }}
           onClick={handleDownload}
           disabled={downloading}
-          className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl bg-foreground text-background hover:opacity-90 transition-all glow-primary btn-shine disabled:opacity-60"
+          className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm shadow-lg shadow-primary/30 hover:brightness-110 active:brightness-95 transition-all btn-shine disabled:opacity-60 disabled:shadow-none"
         >
-          <div className="h-6 w-6 flex items-center justify-center">
-            {downloading ? (
+          {downloading ? (
+            <>
               <Loader className="h-5 w-5 animate-spin" />
-            ) : (
+              Downloading…
+            </>
+          ) : (
+            <>
               <Download className="h-5 w-5" />
-            )}
-          </div>
-          <span className="font-semibold text-sm">
-            {downloading ? "Downloading…" : "Download The Logo"}
-          </span>
+              Download The Logo
+            </>
+          )}
         </motion.button>
 
         {count !== null && count > 0 && (
