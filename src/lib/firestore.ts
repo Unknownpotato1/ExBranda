@@ -14,12 +14,19 @@ type DocData = Record<string, any>;
 
 function normalizeSnap(snap: any): any {
   if (!snap || !snap.exists) return null;
-  return { id: snap.id, _ref: snap.ref, ...snap.data() };
+  const data = snap.data();
+  // Strip internal Firestore refs (we expose id separately)
+  const { _ref, ...rest } = data as any;
+  return { id: snap.id, ...rest };
 }
 
 function normalizeSnapshot(snap: any): any[] {
   const out: any[] = [];
-  snap.forEach((d: any) => out.push({ id: d.id, _ref: d.ref, ...d.data() }));
+  snap.forEach((d: any) => {
+    const data = d.data();
+    const { _ref, ...rest } = data as any;
+    out.push({ id: d.id, ...rest });
+  });
   return out;
 }
 
