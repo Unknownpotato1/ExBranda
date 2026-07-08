@@ -1,8 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "buildCommand": "bun run build",
+  "installCommand": "bun install",
   "regions": ["bom1"],
   "env": {
-    "NEXT_PUBLIC_APP_URL": "https://exbranda.com"
+    "DATABASE_URL": "file:/tmp/exbranda.db",
+    "CLOUDINARY_CLOUD_NAME": "drlmgjt6p",
+    "NEXT_PUBLIC_APP_URL": "https://exbranda.vercel.app"
   }
 }

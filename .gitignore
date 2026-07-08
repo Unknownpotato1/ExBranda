@@ -72,3 +72,4 @@ Caddyfile
 
 # Build artifacts and screenshots
 download/
+.env*

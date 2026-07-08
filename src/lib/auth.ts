@@ -2,7 +2,7 @@
 // In production, replace `mockGoogleLogin` with real Firebase Auth / Google OAuth.
 
 import { cookies } from "next/headers";
-import { db } from "./db";
+import { db, readyDb } from "./db";
 import type { UserDTO } from "./types";
 
 export const SESSION_COOKIE = "exbranda_session";
@@ -67,6 +67,7 @@ export async function getSessionUser(): Promise<UserDTO | null> {
   if (!token) return null;
   const session = decodeSession(token);
   if (!session) return null;
+  await readyDb();
   const user = await db.user.findUnique({ where: { id: session.uid } });
   if (!user) return null;
   if (user.banned) return null;
@@ -93,6 +94,7 @@ const DEMO_NAMES = [
 ];
 
 export async function mockGoogleLogin(email: string): Promise<UserDTO> {
+  await readyDb();
   let user = await db.user.findUnique({ where: { email } });
   if (!user) {
     // Generate a unique referral code

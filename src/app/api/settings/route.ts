@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, readyDb } from "@/lib/db";
 
 // GET /api/settings — public settings (announcement, base rate, etc.)
 export async function GET() {
+  await readyDb();
   const settings = await db.setting.findMany();
   const map: Record<string, string> = {};
   for (const s of settings) map[s.key] = s.value;

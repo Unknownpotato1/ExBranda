@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, readyDb } from "@/lib/db";
 
 // GET /api/leaderboard — top earners (privacy-respecting)
 export async function GET() {
+  await readyDb();
   // Users who opted out of showing wallet get hidden from leaderboard amounts.
   const wallets = await db.wallet.findMany({
     where: { user: { role: "user", banned: false } },
