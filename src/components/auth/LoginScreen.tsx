@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Logo } from "@/components/common/Logo";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
-import { ArrowRight, Shield, Sparkles, TrendingUp, Users, Loader2 } from "lucide-react";
+import { ArrowRight, Sparkles, TrendingUp, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { isFirebaseConfigured, signInWithGoogle } from "@/lib/firebase-client";
 
@@ -46,25 +46,6 @@ export function LoginScreen() {
     } catch (e: any) {
       console.error("Google login failed:", e);
       toast.error(e.message || "Google Sign-In failed");
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  // === Mock admin login (dev/demo) ===
-  const loginAdminMock = async () => {
-    setLoading("admin");
-    try {
-      const r = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "admin@exbranda.com", role: "admin" }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Login failed");
-      await finalizeLogin();
-    } catch (e: any) {
-      toast.error(e.message || "Login failed");
     } finally {
       setLoading(null);
     }
@@ -153,12 +134,12 @@ export function LoginScreen() {
           >
             <Button
               size="lg"
-              className="w-full h-13 py-3.5 text-base font-medium rounded-2xl btn-shine glow-primary"
+              className="w-full h-13 py-3.5 text-base font-medium rounded-2xl btn-shine glow-primary bg-primary text-primary-foreground hover:brightness-110"
               onClick={loginWithGoogle}
               disabled={!!loading}
             >
               {loading === "google" ? (
-                <Loader2 className="h-4.5 w-4.5 animate-spin" />
+                <Loader2 className="h-4.5 w-4.5" />
               ) : (
                 <>
                   <GoogleIcon className="h-5 w-5" />
@@ -174,40 +155,22 @@ export function LoginScreen() {
               </p>
             )}
 
-            {/* Always show demo buttons as fallback (useful before Google Sign-In
-                provider is enabled in Firebase Console) */}
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                className="flex-1 h-11 rounded-xl"
-                onClick={loginCreatorMock}
-                disabled={!!loading}
-              >
-                {loading === "demo" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-1.5" />
-                    Demo creator
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 h-11 rounded-xl"
-                onClick={loginAdminMock}
-                disabled={!!loading}
-              >
-                {loading === "admin" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Shield className="h-4 w-4 mr-1.5 text-amber-500" />
-                    Admin login
-                  </>
-                )}
-              </Button>
-            </div>
+            {/* Demo button as fallback (useful before Google Sign-In provider is enabled) */}
+            <Button
+              variant="outline"
+              className="w-full h-11 rounded-xl"
+              onClick={loginCreatorMock}
+              disabled={!!loading}
+            >
+              {loading === "demo" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  See demo account
+                </>
+              )}
+            </Button>
 
             {pendingReferralCode && (
               <p className="text-center text-[11px] text-primary">

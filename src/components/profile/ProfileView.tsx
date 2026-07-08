@@ -135,6 +135,26 @@ export function ProfileView() {
     window.location.reload();
   };
 
+  const loginAdmin = async () => {
+    try {
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "admin@exbranda.com", role: "admin" }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Admin login failed");
+      // Refresh session
+      const me = await fetch("/api/auth/me");
+      const meJ = await me.json();
+      setUser(meJ.user);
+      setView("admin");
+      toast.success("Welcome, Admin!");
+    } catch (e: any) {
+      toast.error(e.message || "Admin login failed");
+    }
+  };
+
   if (!user) return null;
   const rate = getCurrentRate(user.referralBonusPct);
 
@@ -303,6 +323,18 @@ export function ProfileView() {
             <MenuItem icon={Shield} label="Admin Panel" tone="text-amber-500" onClick={() => setView("admin")} />
           )}
         </div>
+
+        {/* Admin login — for switching to admin account */}
+        {user.role !== "admin" && (
+          <Button
+            variant="outline"
+            className="w-full h-11 rounded-xl text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/5"
+            onClick={loginAdmin}
+          >
+            <Shield className="h-4 w-4 mr-1.5" />
+            Admin Login
+          </Button>
+        )}
 
         <Button variant="outline" className="w-full h-11 rounded-xl text-rose-500" onClick={logout}>
           <LogOut className="h-4 w-4 mr-1.5" />
