@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Logo } from "@/components/common/Logo";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
-import { ArrowRight, Sparkles, TrendingUp, Users, Loader2 } from "lucide-react";
+import { ArrowRight, Shield, Sparkles, TrendingUp, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { isFirebaseConfigured, signInWithGoogle } from "@/lib/firebase-client";
 
