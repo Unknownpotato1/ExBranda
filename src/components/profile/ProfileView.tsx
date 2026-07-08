@@ -284,7 +284,7 @@ export function ProfileView() {
           <div className="flex items-center justify-between pt-2 border-t border-border/40">
             <div>
               <div className="text-xs font-medium">Privacy Mode</div>
-              <div className="text-[11px] text-muted-foreground">Hide wallet amount on leaderboard</div>
+              <div className="text-[11px] text-muted-foreground">Hide my wallet balance from others</div>
             </div>
             <Switch checked={privacyHideWallet} onCheckedChange={setPrivacyHideWallet} />
           </div>
