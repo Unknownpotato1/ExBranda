@@ -225,7 +225,15 @@ async function findManyWithJsFilter(
       }
     }
   }
-  // Single condition or no condition — apply orderBy in Firestore (single-field indexes are auto-created)
+  // Single condition with orderBy on a DIFFERENT field still needs a composite
+  // index in Firestore. To avoid this entirely, when we have BOTH where AND
+  // orderBy, fetch all matching docs (using just the first where) and sort in JS.
+  if (where && orderBy) {
+    const snap = await q.get();
+    let docs = normalizeSnapshot(snap).map(reviver);
+    return applyOrderByAndTake(docs, orderBy, take);
+  }
+  // No where OR no orderBy — Firestore can handle single-field queries natively
   if (orderBy) {
     for (const [field, dir] of Object.entries(orderBy)) {
       q = q.orderBy(field, dir === "asc" ? "asc" : "desc");
