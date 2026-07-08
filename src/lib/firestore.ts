@@ -450,7 +450,17 @@ const wallets = {
   async update({ where, data }: { where: { userId: string }; data: DocData }): Promise<any> {
     const db = getDb();
     const ref = db.collection("wallets").doc(where.userId);
-    const payload = { ...data, updatedAt: new Date() };
+    // Translate Prisma-style { increment: N } to Firestore FieldValue.increment(N)
+    const payload: DocData = { updatedAt: new Date() };
+    for (const [k, v] of Object.entries(data)) {
+      if (v && typeof v === "object" && "increment" in v && typeof v.increment === "number") {
+        payload[k] = FieldValue.increment(v.increment);
+      } else if (v && typeof v === "object" && "decrement" in v && typeof v.decrement === "number") {
+        payload[k] = FieldValue.increment(-v.decrement);
+      } else {
+        payload[k] = v;
+      }
+    }
     await ref.update(payload);
     const updated = await ref.get();
     return reviver({ id: ref.id, ...updated.data() });
