@@ -7,14 +7,11 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  // Mark packages that should NOT be bundled by turbopack — they should
-  // remain as external requires (Vercel will resolve them from node_modules)
+  // Note: We intentionally do NOT externalize firebase-admin because it
+  // depends on jwks-rsa → jose (ESM-only). Bundling via Turbopack handles
+  // the CJS/ESM interop correctly. Externalizing causes ERR_REQUIRE_ESM.
   serverExternalPackages: [
     "@prisma/client",
-    "firebase-admin",
-    "firebase-admin/firestore",
-    "firebase-admin/auth",
-    "@firebase/firestore",
     "@grpc/grpc-js",
     "google-auth-library",
     "googleapis",
