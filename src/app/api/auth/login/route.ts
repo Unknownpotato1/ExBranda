@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockGoogleLogin } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, readyDb } from "@/lib/db";
 import { z } from "zod";
 
 const schema = z.object({
@@ -18,6 +18,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
     let { email, role } = parsed.data;
+
+    // Ensure schema is ready before any query (Vercel serverless /tmp init)
+    await readyDb();
 
     // Admin login: ensure admin@exbranda.com is admin
     if (role === "admin") {
