@@ -63,7 +63,7 @@ export function InstallPrompt() {
           className="fixed bottom-0 left-0 right-0 z-50 pb-safe"
         >
           <div className="mx-auto max-w-md px-3 pb-3">
-            <div className="glass-strong rounded-3xl p-5 shadow-2xl shadow-black/20 dark:shadow-black/50 relative overflow-hidden">
+            <div className="solid rounded-3xl p-5 shadow-2xl shadow-black/20 dark:shadow-black/50 relative overflow-hidden">
               {/* Decorative gradient */}
               <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
 

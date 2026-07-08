@@ -43,7 +43,7 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-30 px-3 pt-3 pb-2">
       <div className="mx-auto max-w-md">
-        <div className="glass-strong rounded-2xl px-3 py-2.5 flex items-center justify-between">
+        <div className="solid rounded-2xl px-3 py-2.5 flex items-center justify-between shadow-sm shadow-black/5">
           <button onClick={() => setView("dashboard")} className="active:scale-95 transition-transform">
             <Logo size={32} />
           </button>

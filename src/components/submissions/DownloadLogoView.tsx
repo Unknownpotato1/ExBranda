@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useAppStore } from "@/store/appStore";
 import { BackHeader } from "@/components/submissions/SubmitReelView";
 import { toast } from "sonner";
-import { Download, Loader, CircleCheck, Film } from "lucide-react";
+import { Download, Loader, CircleCheck } from "lucide-react";
 
 // The ExBranda logo — hosted on Cloudinary
 const LOGO_URL =
@@ -25,7 +25,6 @@ export function DownloadLogoView() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      // Fetch the file as a blob so we can trigger a proper download
       const res = await fetch(LOGO_URL);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -37,7 +36,6 @@ export function DownloadLogoView() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Log to backend
       const r = await fetch("/api/downloads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,7 +46,6 @@ export function DownloadLogoView() {
 
       toast.success("Downloaded!");
     } catch (e: any) {
-      // Fallback: open in new tab
       window.open(LOGO_URL, "_blank");
       toast.success("Opened in new tab");
     } finally {
@@ -60,34 +57,6 @@ export function DownloadLogoView() {
     <div className="px-3 pb-4">
       <div className="mx-auto max-w-md space-y-4">
         <BackHeader title="Download Logo" />
-
-        {/* Preview */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="glass rounded-2xl p-5 flex flex-col items-center"
-        >
-          <div className="bg-grid rounded-2xl p-3 mb-3 w-full flex items-center justify-center overflow-hidden">
-            <video
-              src={LOGO_URL}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full max-w-[240px] rounded-xl"
-            />
-          </div>
-          <p className="text-sm font-semibold">ExBranda Logo</p>
-          <p className="text-xs text-muted-foreground mt-0.5 text-center">
-            Use this logo in your Reels. Position visibly for at least 3 seconds.
-          </p>
-          {count !== null && count > 0 && (
-            <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Download className="h-3 w-3" />
-              {count} {count === 1 ? "download" : "downloads"} by you
-            </div>
-          )}
-        </motion.div>
 
         {/* Usage guidelines */}
         <div className="glass rounded-2xl p-4">
@@ -126,6 +95,13 @@ export function DownloadLogoView() {
             {downloading ? "Downloading…" : "Download The Logo"}
           </span>
         </motion.button>
+
+        {count !== null && count > 0 && (
+          <div className="text-center flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+            <Download className="h-3 w-3" />
+            {count} {count === 1 ? "download" : "downloads"} by you
+          </div>
+        )}
       </div>
     </div>
   );

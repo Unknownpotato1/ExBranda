@@ -22,7 +22,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 pb-safe">
       <div className="mx-auto max-w-md px-3 pb-2 pt-1">
-        <div className="glass-strong rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/40 px-2 py-1.5">
+        <div className="solid rounded-2xl shadow-lg shadow-black/10 dark:shadow-black/40 px-2 py-1.5">
           <ul className="flex items-center justify-between">
             {items.map((it) => {
               const active = view === it.id;

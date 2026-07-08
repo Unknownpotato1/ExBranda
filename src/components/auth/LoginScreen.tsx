@@ -99,7 +99,7 @@ export function LoginScreen() {
       <div className="relative min-h-screen flex flex-col">
         {/* Header */}
         <header className="px-5 pt-6 pb-4">
-          <Logo size={36} />
+          <Logo size={36} showTagline />
         </header>
 
         {/* Hero */}

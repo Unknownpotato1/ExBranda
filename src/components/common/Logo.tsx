@@ -5,9 +5,10 @@ interface LogoProps {
   className?: string;
   size?: number;
   showText?: boolean;
+  showTagline?: boolean;
 }
 
-export function Logo({ className, size = 32, showText = true }: LogoProps) {
+export function Logo({ className, size = 32, showText = true, showTagline = false }: LogoProps) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <svg
@@ -44,6 +45,9 @@ export function Logo({ className, size = 32, showText = true }: LogoProps) {
           <span className="font-semibold text-base tracking-tight">
             Ex<span className="gradient-text">Branda</span>
           </span>
+          {showTagline && (
+            <span className="text-[10px] text-muted-foreground mt-0.5">Earn by Promoting Brands</span>
+          )}
         </div>
       )}
     </div>
