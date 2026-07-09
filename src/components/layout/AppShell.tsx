@@ -33,8 +33,10 @@ export function AppShell() {
   const storedTheme = useAppStore((s) => s.theme);
 
   // Apply persisted theme preference on mount (intentionally run once)
+  // Map any legacy "system" value to "dark" (our new default)
   React.useEffect(() => {
-    if (storedTheme && storedTheme !== theme) setTheme(storedTheme);
+    const effective = storedTheme === "system" ? "dark" : storedTheme;
+    if (effective && effective !== theme) setTheme(effective);
   }, []);
 
   const isAdminView = view === "admin";

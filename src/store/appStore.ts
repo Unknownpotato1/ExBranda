@@ -20,7 +20,7 @@ export type ViewName =
   | "legal"
   | "admin";
 
-export type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark";
 
 interface AppState {
   // Auth
@@ -63,7 +63,7 @@ export const useAppStore = create<AppState>()(
       pendingReferralCode: null,
       setPendingReferralCode: (code) => set({ pendingReferralCode: code }),
 
-      theme: "system",
+      theme: "dark",
       setTheme: (t) => set({ theme: t }),
 
       celebrate: false,

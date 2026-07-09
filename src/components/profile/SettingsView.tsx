@@ -4,7 +4,7 @@ import * as React from "react";
 import { useAppStore } from "@/store/appStore";
 import { BackHeader } from "@/components/submissions/SubmitReelView";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Monitor, Bell, Globe, FileText, Shield, ChevronRight, MessageCircle } from "lucide-react";
+import { Moon, Sun, Bell, Globe, FileText, Shield, ChevronRight, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function SettingsView() {
@@ -12,10 +12,9 @@ export function SettingsView() {
   const setView = useAppStore((s) => s.setView);
   const [notifications, setNotifications] = React.useState(true);
 
-  const themes: { id: "light" | "dark" | "system"; label: string; icon: typeof Moon }[] = [
-    { id: "light", label: "Light", icon: Sun },
+  const themes: { id: "light" | "dark"; label: string; icon: typeof Moon }[] = [
     { id: "dark", label: "Dark", icon: Moon },
-    { id: "system", label: "System", icon: Monitor },
+    { id: "light", label: "Light", icon: Sun },
   ];
 
   return (
@@ -28,7 +27,7 @@ export function SettingsView() {
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
             Appearance
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {themes.map((t) => {
               const active = theme === t.id;
               const Icon = t.icon;
