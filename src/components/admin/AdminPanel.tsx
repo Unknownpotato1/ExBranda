@@ -92,7 +92,7 @@ export function AdminPanel() {
 
         {/* Tabs */}
         <div className="flex gap-1 glass rounded-xl p-1 sticky top-2 z-20">
-          {(["stats", "submissions", "withdrawals", "users"] as AdminTab[]).map((t) => (
+          {(["stats", "submissions", "withdrawals", "users", "chat"] as AdminTab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
