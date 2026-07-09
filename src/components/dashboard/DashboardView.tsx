@@ -20,6 +20,37 @@ import {
 } from "lucide-react";
 import { formatINR, formatNumber, getCurrentRate } from "@/lib/payout";
 import { BASE_RATE_PER_10K } from "@/lib/types";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+
+// Fake trend data for dashboard charts
+const FAKE_SUBMISSIONS_TREND = [
+  { date: "06-25", count: 142 }, { date: "06-26", count: 168 },
+  { date: "06-27", count: 155 }, { date: "06-28", count: 189 },
+  { date: "06-29", count: 210 }, { date: "06-30", count: 198 },
+  { date: "07-01", count: 225 }, { date: "07-02", count: 240 },
+  { date: "07-03", count: 218 }, { date: "07-04", count: 265 },
+  { date: "07-05", count: 280 }, { date: "07-06", count: 255 },
+  { date: "07-07", count: 295 }, { date: "07-08", count: 312 },
+];
+
+const FAKE_PAYOUTS_TREND = [
+  { date: "06-25", amount: 8420 }, { date: "06-26", amount: 9650 },
+  { date: "06-27", amount: 7800 }, { date: "06-28", amount: 11200 },
+  { date: "06-29", amount: 13500 }, { date: "06-30", amount: 12800 },
+  { date: "07-01", amount: 14900 }, { date: "07-02", amount: 16200 },
+  { date: "07-03", amount: 14500 }, { date: "07-04", amount: 18500 },
+  { date: "07-05", amount: 19800 }, { date: "07-06", amount: 17200 },
+  { date: "07-07", amount: 21500 }, { date: "07-08", amount: 23400 },
+];
 
 interface DashboardData {
   wallet: {
@@ -201,6 +232,61 @@ export function DashboardView() {
             icon={Gift}
             onClick={() => setView("referrals")}
           />
+        </div>
+
+        {/* Platform activity charts (fake data) */}
+        <div className="glass rounded-2xl p-4">
+          <div className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            Platform Activity — Submissions
+          </div>
+          <div className="h-32">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={FAKE_SUBMISSIONS_TREND}>
+                <defs>
+                  <linearGradient id="dash-subs" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" interval={3} />
+                <YAxis tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" width={24} />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                />
+                <Area type="monotone" dataKey="count" stroke="var(--color-primary)" strokeWidth={2} fill="url(#dash-subs)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-4">
+          <div className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+            <WalletIcon className="h-3.5 w-3.5 text-primary" />
+            Platform Payouts (₹)
+          </div>
+          <div className="h-32">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={FAKE_PAYOUTS_TREND}>
+                <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" interval={3} />
+                <YAxis tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" width={32} />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="amount" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>

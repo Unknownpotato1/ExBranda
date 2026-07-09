@@ -33,6 +33,7 @@ import {
   Trash2,
   ExternalLink,
   Instagram,
+  Send,
 } from "lucide-react";
 import {
   AreaChart,
@@ -48,7 +49,7 @@ import { formatINR, formatNumber } from "@/lib/payout";
 import { toast } from "sonner";
 import { Logo } from "@/components/common/Logo";
 
-type AdminTab = "stats" | "submissions" | "withdrawals" | "users";
+type AdminTab = "stats" | "submissions" | "withdrawals" | "users" | "chat";
 
 export function AdminPanel() {
   const user = useAppStore((s) => s.user);
@@ -108,6 +109,7 @@ export function AdminPanel() {
         {tab === "submissions" && <SubmissionsTab />}
         {tab === "withdrawals" && <WithdrawalsTab />}
         {tab === "users" && <UsersTab />}
+        {tab === "chat" && <AdminChatTab />}
       </div>
     </div>
   );
@@ -681,6 +683,147 @@ function UsersTab() {
                 </div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ ADMIN CHAT ============ */
+function AdminChatTab() {
+  const [conversations, setConversations] = React.useState<any[] | null>(null);
+  const [selectedUserId, setSelectedUserId] = React.useState<string | null>(null);
+  const [messages, setMessages] = React.useState<any[] | null>(null);
+  const [replyText, setReplyText] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const loadConvos = React.useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/chat");
+      const j = await r.json();
+      setConversations(j.conversations || []);
+    } catch {
+      setConversations([]);
+    }
+  }, []);
+
+  const loadMessages = React.useCallback(async (userId: string) => {
+    try {
+      const r = await fetch(`/api/admin/chat?userId=${userId}`);
+      const j = await r.json();
+      setMessages(j.messages || []);
+    } catch {
+      setMessages([]);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadConvos();
+    const id = setInterval(loadConvos, 10000);
+    return () => clearInterval(id);
+  }, [loadConvos]);
+
+  React.useEffect(() => {
+    if (selectedUserId) {
+      loadMessages(selectedUserId);
+      const id = setInterval(() => loadMessages(selectedUserId), 5000);
+      return () => clearInterval(id);
+    }
+  }, [selectedUserId, loadMessages]);
+
+  React.useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendReply = async () => {
+    if (!replyText.trim() || !selectedUserId || sending) return;
+    setSending(true);
+    const msg = replyText.trim();
+    setReplyText("");
+    const optimistic = { id: `temp-${Date.now()}`, sender: "admin", text: msg, imageUrl: null, createdAt: new Date().toISOString(), read: false };
+    setMessages((prev) => [...(prev || []), optimistic]);
+    try {
+      const r = await fetch("/api/admin/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: selectedUserId, text: msg }) });
+      if (!r.ok) throw new Error("Failed");
+      await loadMessages(selectedUserId);
+      await loadConvos();
+    } catch {
+      toast.error("Failed to send");
+      setMessages((prev) => (prev || []).filter((m) => m.id !== optimistic.id));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (selectedUserId && messages !== null) {
+    const convo = conversations?.find((c) => c.userId === selectedUserId);
+    return (
+      <div className="flex flex-col" style={{ minHeight: "500px" }}>
+        <div className="glass rounded-xl p-3 flex items-center gap-3 mb-3">
+          <button onClick={() => { setSelectedUserId(null); setMessages(null); }} className="h-8 w-8 rounded-lg bg-foreground/5 flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Back">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary/20 to-chart-3/20 flex items-center justify-center text-sm font-semibold">{(convo?.userName || "U").charAt(0)}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{convo?.userName || "User"}</div>
+            <div className="text-[11px] text-muted-foreground truncate">{convo?.userEmail}</div>
+          </div>
+        </div>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto slim-scroll space-y-2 mb-3 min-h-[300px] max-h-[400px]">
+          {messages.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-8">No messages yet</div>
+          ) : (
+            messages.map((m) => {
+              const isAdmin = m.sender === "admin";
+              const time = new Date(m.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+              return (
+                <div key={m.id} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[75%] flex flex-col ${isAdmin ? "items-end" : "items-start"}`}>
+                    <div className={`rounded-2xl px-3 py-2 ${isAdmin ? "bg-primary text-primary-foreground rounded-br-md" : "glass rounded-bl-md"}`}>
+                      {m.imageUrl && <img src={m.imageUrl} alt="" className="rounded-lg max-w-full max-h-48 mb-1" />}
+                      {m.text && <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 px-1">{time}</div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="glass rounded-xl p-2.5 flex items-end gap-2">
+          <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }} placeholder="Type your reply…" rows={1} className="flex-1 bg-transparent text-sm resize-none outline-none py-2.5 px-1 max-h-24" disabled={sending} />
+          <button onClick={sendReply} disabled={!replyText.trim() || sending} className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40" aria-label="Send">
+            {sending ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {conversations === null ? (
+        <div className="py-12 text-center"><Loader className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></div>
+      ) : conversations.length === 0 ? (
+        <div className="glass rounded-2xl p-8 text-center text-sm text-muted-foreground">No conversations yet. When users send a chat message, it will appear here.</div>
+      ) : (
+        <div className="space-y-2">
+          {conversations.map((c) => (
+            <button key={c.userId} onClick={() => setSelectedUserId(c.userId)} className="w-full glass rounded-xl p-3 flex items-center gap-3 hover:bg-foreground/[0.03] transition-colors text-left">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-chart-3/20 flex items-center justify-center text-sm font-semibold shrink-0">{c.userName.charAt(0)}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{c.userName}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{c.lastSender === "admin" ? "You: " : ""}{c.lastMessage || "📷 Image"}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-[10px] text-muted-foreground">{new Date(c.lastAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</div>
+                {c.unreadCount > 0 && <span className="inline-flex items-center justify-center h-4 min-w-4 px-1.5 mt-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">{c.unreadCount}</span>}
+              </div>
+            </button>
           ))}
         </div>
       )}

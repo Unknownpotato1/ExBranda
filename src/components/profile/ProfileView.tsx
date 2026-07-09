@@ -297,7 +297,7 @@ export function ProfileView() {
         <div className="glass rounded-2xl overflow-hidden divide-y divide-border/40">
           <MenuItem icon={SettingsIcon} label="Settings" onClick={() => setView("settings")} />
           <MenuItem icon={CircleHelp} label="FAQ" onClick={() => setView("faq")} />
-          <MenuItem icon={MessageCircle} label="Contact Support" onClick={() => setView("contact")} />
+          <MenuItem icon={MessageCircle} label="Chat with Us" onClick={() => setView("chat")} />
           <MenuItem icon={FileText} label="Legal & Policies" onClick={() => setView("legal")} />
           {user.role === "admin" && (
             <MenuItem icon={Shield} label="Admin Panel" tone="text-amber-500" onClick={() => setView("admin")} />

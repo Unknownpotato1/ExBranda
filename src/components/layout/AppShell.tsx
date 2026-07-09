@@ -4,6 +4,7 @@ import * as React from "react";
 import { useAppStore } from "@/store/appStore";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
+import { Footer } from "./Footer";
 import { InstallPrompt } from "./InstallPrompt";
 import { Confetti } from "@/components/common/Confetti";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +21,7 @@ import { SettingsView } from "@/components/profile/SettingsView";
 import { ReferralsView } from "@/components/profile/ReferralsView";
 import { NotificationsView } from "@/components/info/NotificationsView";
 import { FAQView } from "@/components/info/FAQView";
-import { ContactView } from "@/components/info/ContactView";
+import { ChatView } from "@/components/info/ChatView";
 import { LegalView } from "@/components/info/LegalView";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 
@@ -45,7 +46,7 @@ export function AppShell() {
     <div className="min-h-screen bg-aurora">
       <TopBar />
 
-      <main className="pt-2 pb-28">
+      <main className="pt-2 pb-28 flex-1">
         <AnimatePresence mode="wait">
           <motion.div
             key={view}
@@ -57,6 +58,11 @@ export function AppShell() {
             <ViewRouter view={view} setView={setView} />
           </motion.div>
         </AnimatePresence>
+
+        {/* Footer — only on dashboard, not on admin/forms */}
+        {(view === "dashboard" || view === "faq" || view === "legal" || view === "chat") && (
+          <Footer />
+        )}
       </main>
 
       {!isAdminView && <BottomNav />}
@@ -87,7 +93,7 @@ function ViewRouter({
     case "referrals": return <ReferralsView />;
     case "notifications": return <NotificationsView />;
     case "faq": return <FAQView />;
-    case "contact": return <ContactView />;
+    case "chat": return <ChatView />;
     case "legal": return <LegalView />;
     case "admin": return <AdminPanel />;
     default: return <DashboardView />;

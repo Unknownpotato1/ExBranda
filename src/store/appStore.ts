@@ -16,7 +16,7 @@ export type ViewName =
   | "referrals"
   | "notifications"
   | "faq"
-  | "contact"
+  | "chat"
   | "legal"
   | "admin";
 

@@ -838,6 +838,32 @@ async function incrementWallet(userId: string, fields: Record<string, number>): 
   await atomicIncrement("wallets", userId, fields);
 }
 
+// === MESSAGES (chat) ===
+const messages = {
+  async findMany({ where, orderBy, take }: { where?: DocData; orderBy?: any; take?: number } = {}): Promise<any[]> {
+    const db = getDb();
+    return findManyWithJsFilter(db.collection("messages"), { where, orderBy, take });
+  },
+  async create({ data }: { data: DocData }): Promise<any> {
+    const db = getDb();
+    const payload = { ...data, createdAt: new Date() };
+    const ref = await db.collection("messages").add(payload);
+    return { id: ref.id, ...payload };
+  },
+  async updateMany({ where, data }: { where: DocData; data: DocData }): Promise<{ count: number }> {
+    const db = getDb();
+    let q: any = db.collection("messages");
+    for (const [k, v] of Object.entries(where)) {
+      q = q.where(k, "==", v);
+    }
+    const snap = await q.get();
+    const batch = db.batch();
+    snap.forEach((d) => batch.update(d.ref, data));
+    await batch.commit();
+    return { count: snap.size };
+  },
+};
+
 export const db = {
   user: users,
   wallet: wallets,
@@ -850,6 +876,7 @@ export const db = {
   notification: notifications,
   download: downloads,
   auditLog: auditLogs,
+  message: messages,
   $transaction: tx,
   incrementWallet,
 };
