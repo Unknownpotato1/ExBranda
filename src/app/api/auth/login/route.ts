@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { firebaseLogin, mockGoogleLogin, getSessionUser } from "@/lib/auth";
-import { db } from "@/lib/firestore";
+import { firebaseLogin, mockGoogleLogin } from "@/lib/auth";
 import { z } from "zod";
 
 const schema = z.object({
   email: z.string().email().optional(),
-  role: z.enum(["user", "admin"]).optional().default("user"),
   idToken: z.string().optional(),
+  // NOTE: 'role' is intentionally NOT accepted from the client.
+  // Admin role is determined solely by the user's email matching the
+  // ADMIN_EMAIL constant in src/lib/auth.ts. No client can ever
+  // escalate their own privileges.
 });
 
 // POST /api/auth/login
 // Supports two flows:
 // 1. REAL Firebase Auth: { idToken: "<Firebase ID JWT>" }
-// 2. Mock (dev/demo): { email: "user@example.com", role: "user"|"admin" }
+// 2. Mock (dev/demo): { email: "user@example.com" }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
-    const { email, role, idToken } = parsed.data;
+    const { email, idToken } = parsed.data;
 
     // === Flow 1: REAL Firebase Auth ===
     if (idToken) {
@@ -36,14 +38,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email or idToken required" }, { status: 400 });
     }
 
-    // Admin login: ensure the email is registered as an admin
-    if (role === "admin") {
-      const admin = await db.user.findUnique({ where: { email } });
-      if (!admin || admin.role !== "admin") {
-        return NextResponse.json({ error: "Not an admin account" }, { status: 403 });
-      }
-    }
-
+    // The role is determined inside mockGoogleLogin based on ADMIN_EMAIL.
+    // We do NOT pass any role from the client.
     const user = await mockGoogleLogin(email);
     if (user.banned) {
       return NextResponse.json({ error: "Account banned" }, { status: 403 });

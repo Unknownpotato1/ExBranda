@@ -58,7 +58,7 @@ export function LoginScreen() {
       const r = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "creator@exbranda.com", role: "user" }),
+        body: JSON.stringify({ email: "creator@exbranda.com" }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Login failed");

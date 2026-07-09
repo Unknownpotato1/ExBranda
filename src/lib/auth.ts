@@ -101,6 +101,22 @@ export async function requireAdmin(): Promise<UserDTO> {
   return u;
 }
 
+// The single email that is allowed to be admin. No other account can
+// ever get admin role — not via the login route, not via the profile page,
+// not via the API. This is the only gate.
+const ADMIN_EMAIL = "shahbazahmad9783@gmail.com";
+
+// Helper: ensure a user has admin role + admin record if they match the admin email
+async function ensureAdminRole(userId: string, email: string): Promise<void> {
+  if (email.toLowerCase() !== ADMIN_EMAIL) return;
+  await db.user.update({ where: { id: userId }, data: { role: "admin" } });
+  try {
+    await db.admin.create({ data: { userId } });
+  } catch {
+    // Already exists — that's fine
+  }
+}
+
 // === REAL Firebase Auth login ===
 // Verifies a Firebase ID token, creates or fetches the user in Firestore,
 // and creates an ExBranda session cookie.
@@ -118,30 +134,43 @@ export async function firebaseLogin(idToken: string): Promise<UserDTO> {
     const referralCode = await generateUniqueReferralCode(baseName);
     // Get display name from Firebase token, or use email
     const displayName = decoded.name || email.split("@")[0];
+    // Auto-admin: if this is the designated admin email, create as admin
+    const isAdminEmail = email.toLowerCase() === ADMIN_EMAIL;
     user = await db.user.create({
       data: {
         email,
         name: displayName,
         referralCode,
-        // Inherit role from Firebase custom claims if present
-        role: decoded.role === "admin" ? "admin" : "user",
+        role: isAdminEmail ? "admin" : "user",
       },
     });
     // Create wallet
     await db.wallet.create({ data: { userId: user.id } });
 
-    // If this user has admin claims in Firebase AND matches our admin email,
-    // make them admin in Firestore too
-    if (decoded.role === "admin" || email === "admin@exbranda.com") {
-      await db.user.update({ where: { id: user.id }, data: { role: "admin" } });
-      await db.admin.create({ data: { userId: user.id } });
+    // If admin email, also create admin record
+    if (isAdminEmail) {
+      try {
+        await db.admin.create({ data: { userId: user.id } });
+      } catch {
+        // Already exists
+      }
     }
   } else {
-    // Update role from Firebase custom claims if needed
-    if (decoded.role === "admin" && user.role !== "admin") {
+    // Existing user — ensure admin role is correct for the admin email
+    const isAdminEmail = email.toLowerCase() === ADMIN_EMAIL;
+    if (isAdminEmail && user.role !== "admin") {
       await db.user.update({ where: { id: user.id }, data: { role: "admin" } });
-      await db.admin.create({ data: { userId: user.id } });
+      try {
+        await db.admin.create({ data: { userId: user.id } });
+      } catch {
+        // Already exists
+      }
       user = { ...user, role: "admin" };
+    }
+    // SECURITY: if a non-admin-email user somehow has admin role, strip it
+    if (!isAdminEmail && user.role === "admin") {
+      await db.user.update({ where: { id: user.id }, data: { role: "user" } });
+      user = { ...user, role: "user" };
     }
   }
 
@@ -156,19 +185,50 @@ const DEMO_NAMES = [
 ];
 
 export async function mockGoogleLogin(email: string): Promise<UserDTO> {
+  // SECURITY: never allow the mock login to specify a role — the role is
+  // determined solely by whether the email matches ADMIN_EMAIL.
+  const isAdminEmail = email.toLowerCase() === ADMIN_EMAIL;
+
   let user = await db.user.findUnique({ where: { email } });
   if (!user) {
     const baseName = (email.split("@")[0] || "creator").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     const referralCode = await generateUniqueReferralCode(baseName);
-    const demoName = DEMO_NAMES[Math.floor(Math.random() * DEMO_NAMES.length)];
+    // For the admin email, use a proper name; for demo, use a random name
+    const displayName = isAdminEmail
+      ? "Shahbaz Ahmad"
+      : DEMO_NAMES[Math.floor(Math.random() * DEMO_NAMES.length)];
     user = await db.user.create({
       data: {
         email,
-        name: demoName,
+        name: displayName,
+        fullName: isAdminEmail ? "Shahbaz Ahmad" : undefined,
         referralCode,
+        role: isAdminEmail ? "admin" : "user",
       },
     });
     await db.wallet.create({ data: { userId: user.id } });
+    if (isAdminEmail) {
+      try {
+        await db.admin.create({ data: { userId: user.id } });
+      } catch {
+        // Already exists
+      }
+    }
+  } else {
+    // Existing user — sync admin role
+    if (isAdminEmail && user.role !== "admin") {
+      await db.user.update({ where: { id: user.id }, data: { role: "admin" } });
+      try {
+        await db.admin.create({ data: { userId: user.id } });
+      } catch {
+        // Already exists
+      }
+      user = { ...user, role: "admin" };
+    }
+    if (!isAdminEmail && user.role === "admin") {
+      await db.user.update({ where: { id: user.id }, data: { role: "user" } });
+      user = { ...user, role: "user" };
+    }
   }
   await createSession(user.id);
   return toUserDTO(user);
