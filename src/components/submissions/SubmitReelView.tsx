@@ -245,10 +245,18 @@ function PreviewStat({ label, value, accent }: { label: string; value: string; a
 
 export function BackHeader({ title }: { title: string }) {
   const setView = useAppStore((s) => s.setView);
+  const goBack = () => {
+    // Use history.back() so the history stack stays clean
+    if (typeof window !== "undefined" && window.history.state?.view) {
+      window.history.back();
+    } else {
+      setView("dashboard");
+    }
+  };
   return (
     <div className="flex items-center gap-2 pt-1">
       <button
-        onClick={() => setView("dashboard")}
+        onClick={goBack}
         className="h-9 w-9 rounded-xl glass flex items-center justify-center hover:bg-foreground/5"
         aria-label="Back"
       >

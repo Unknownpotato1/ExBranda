@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 export function TopBar() {
   const user = useAppStore((s) => s.user);
   const setView = useAppStore((s) => s.setView);
+  const view = useAppStore((s) => s.view);
   const { theme, setTheme } = useTheme();
   const [unread, setUnread] = React.useState(0);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -20,6 +21,11 @@ export function TopBar() {
     if (!user) return;
     let active = true;
     const tick = async () => {
+      // If user is on the notifications page, don't show the dot
+      if (view === "notifications") {
+        setUnread(0);
+        return;
+      }
       try {
         const r = await fetch("/api/notifications");
         const j = await r.json();
@@ -34,7 +40,7 @@ export function TopBar() {
       active = false;
       clearInterval(id);
     };
-  }, [user]);
+  }, [user, view]);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");

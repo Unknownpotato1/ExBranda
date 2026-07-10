@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useAppStore } from "@/store/appStore";
+import { useAppStore, type ViewName } from "@/store/appStore";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { Footer } from "./Footer";
@@ -28,6 +28,7 @@ import { AdminPanel } from "@/components/admin/AdminPanel";
 export function AppShell() {
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
+  const setViewInternal = useAppStore((s) => s.setViewInternal);
   const celebrate = useAppStore((s) => s.celebrate);
   const clearCelebrate = useAppStore((s) => s.clearCelebrate);
   const { theme, setTheme } = useTheme();
@@ -39,6 +40,21 @@ export function AppShell() {
     const effective = storedTheme === "system" ? "dark" : storedTheme;
     if (effective && effective !== theme) setTheme(effective);
   }, []);
+
+  // Handle phone back button / browser back — navigate within the app
+  React.useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      const state = e.state as { view?: string } | null;
+      if (state?.view) {
+        setViewInternal(state.view as ViewName);
+      } else {
+        // No state — go back to dashboard
+        setViewInternal("dashboard");
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [setViewInternal]);
 
   const isAdminView = view === "admin";
 

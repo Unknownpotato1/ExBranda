@@ -12,6 +12,17 @@ export function InstallPrompt() {
   const [show, setShow] = React.useState(false);
 
   React.useEffect(() => {
+    // Don't show if the app is already installed (running in standalone mode)
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.startsWith("android-app://");
+
+    if (isStandalone) return;
+
+    // Don't show if the browser has already fired appinstalled event
+    if ((window as any).__appInstalled) return;
+
     // Show on every entry, but respect a short dismissal window
     const dismissedAt = Number(sessionStorage.getItem(DISMISS_KEY) || 0);
     const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
@@ -20,6 +31,16 @@ export function InstallPrompt() {
       const t = setTimeout(() => setShow(true), 800);
       return () => clearTimeout(t);
     }
+  }, []);
+
+  // Listen for the appinstalled event — hide the prompt permanently
+  React.useEffect(() => {
+    const onInstalled = () => {
+      (window as any).__appInstalled = true;
+      setShow(false);
+    };
+    window.addEventListener("appinstalled", onInstalled);
+    return () => window.removeEventListener("appinstalled", onInstalled);
   }, []);
 
   const dismiss = React.useCallback(() => {

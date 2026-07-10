@@ -31,9 +31,10 @@ interface AppState {
   setWallet: (w: WalletDTO | null) => void;
   setLoadingAuth: (b: boolean) => void;
 
-  // Navigation (single-route SPA)
+  // Navigation (single-route SPA with History API integration)
   view: ViewName;
   setView: (v: ViewName) => void;
+  setViewInternal: (v: ViewName) => void;
   // pending referral code captured from URL on landing
   pendingReferralCode: string | null;
   setPendingReferralCode: (code: string | null) => void;
@@ -50,7 +51,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       wallet: null,
       isLoadingAuth: true,
@@ -59,7 +60,22 @@ export const useAppStore = create<AppState>()(
       setLoadingAuth: (b) => set({ isLoadingAuth: b }),
 
       view: "dashboard",
-      setView: (v) => set({ view: v }),
+
+      // Internal setter — just updates state, no history push
+      setViewInternal: (v) => set({ view: v }),
+
+      // Public setter — pushes a new history entry so the phone's back
+      // button navigates within the app instead of closing it.
+      setView: (v) => {
+        const current = get().view;
+        if (current === v) return;
+        // Push state so back button works
+        if (typeof window !== "undefined" && v !== "dashboard") {
+          window.history.pushState({ view: v, ts: Date.now() }, "", `#${v}`);
+        }
+        set({ view: v });
+      },
+
       pendingReferralCode: null,
       setPendingReferralCode: (code) => set({ pendingReferralCode: code }),
 
@@ -72,7 +88,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "exbranda-store",
-      partialize: (s) => ({ theme: s.theme, view: s.view }),
+      partialize: (s) => ({ theme: s.theme }),
     }
   )
 );
