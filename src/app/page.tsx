@@ -59,7 +59,11 @@ export default function Page() {
       <div className="min-h-screen bg-aurora flex flex-col items-center justify-center">
         <div className="bg-grid absolute inset-0 opacity-30 pointer-events-none" />
         <div className="relative">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-chart-3 animate-pulse-glow" />
+          <img
+            src="/icon.jpg"
+            alt="ExBranda"
+            className="h-12 w-12 rounded-2xl object-cover animate-pulse-glow"
+          />
         </div>
         <div className="text-xs text-muted-foreground mt-4">Loading ExBranda…</div>
       </div>

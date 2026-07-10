@@ -34,9 +34,9 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.jpg", type: "image/jpeg" },
     ],
-    apple: [{ url: "/icon.svg" }],
+    apple: [{ url: "/icon.jpg" }],
   },
   openGraph: {
     title: "ExBranda — Earn by Promoting Brands",
@@ -75,7 +75,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/icon.jpg" type="image/jpeg" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
