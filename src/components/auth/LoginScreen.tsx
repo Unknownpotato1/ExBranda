@@ -1,22 +1,36 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/common/Logo";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
-import { ArrowRight, Shield, Sparkles, TrendingUp, Users, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Users,
+  Loader2,
+  Wallet,
+  Lock,
+  HelpCircle,
+  X,
+  Download,
+  Upload,
+  CircleCheck,
+} from "lucide-react";
 import { toast } from "sonner";
-import { isFirebaseConfigured, signInWithGoogle } from "@/lib/firebase-client";
+import { signInWithGoogle } from "@/lib/firebase-client";
 
 export function LoginScreen() {
   const setUser = useAppStore((s) => s.setUser);
   const setWallet = useAppStore((s) => s.setWallet);
   const setView = useAppStore((s) => s.setView);
   const pendingReferralCode = useAppStore((s) => s.pendingReferralCode);
-  const [loading, setLoading] = React.useState<"google" | "admin" | "demo" | null>(null);
-
-  const firebaseReady = isFirebaseConfigured();
+  const [loading, setLoading] = React.useState(false);
+  const [showHowItWorks, setShowHowItWorks] = React.useState(false);
 
   // Finalize login — fetch session and redirect
   const finalizeLogin = async () => {
@@ -32,7 +46,7 @@ export function LoginScreen() {
 
   // === Real Google Sign-In via Firebase Auth ===
   const loginWithGoogle = async () => {
-    setLoading("google");
+    setLoading(true);
     try {
       const { idToken } = await signInWithGoogle();
       const r = await fetch("/api/auth/login", {
@@ -45,28 +59,9 @@ export function LoginScreen() {
       await finalizeLogin();
     } catch (e: any) {
       console.error("Google login failed:", e);
-      toast.error(e.message || "Google Sign-In failed");
+      toast.error(e.message || "Google Sign-In failed. Make sure Google Sign-In is enabled in Firebase Console.");
     } finally {
-      setLoading(null);
-    }
-  };
-
-  // === Mock creator login (dev/demo — only when Firebase isn't configured) ===
-  const loginCreatorMock = async () => {
-    setLoading("demo");
-    try {
-      const r = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "creator@exbranda.com" }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Login failed");
-      await finalizeLogin();
-    } catch (e: any) {
-      toast.error(e.message || "Login failed");
-    } finally {
-      setLoading(null);
+      setLoading(false);
     }
   };
 
@@ -89,7 +84,7 @@ export function LoginScreen() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-8"
+            className="text-center mb-6"
           >
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-[11px] font-medium text-primary mb-5">
               <Sparkles className="h-3 w-3" />
@@ -110,7 +105,7 @@ export function LoginScreen() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="grid grid-cols-3 gap-2 mb-8"
+            className="grid grid-cols-3 gap-2 mb-6"
           >
             {[
               { icon: Users, label: "Active creators", value: "12K+" },
@@ -136,10 +131,10 @@ export function LoginScreen() {
               size="lg"
               className="w-full h-13 py-3.5 text-base font-medium rounded-2xl btn-shine glow-primary bg-primary text-primary-foreground hover:brightness-110"
               onClick={loginWithGoogle}
-              disabled={!!loading}
+              disabled={loading}
             >
-              {loading === "google" ? (
-                <Loader2 className="h-4.5 w-4.5" />
+              {loading ? (
+                <Loader2 className="h-4.5 w-4.5 animate-spin" />
               ) : (
                 <>
                   <GoogleIcon className="h-5 w-5" />
@@ -149,28 +144,14 @@ export function LoginScreen() {
               )}
             </Button>
 
-            {firebaseReady && (
-              <p className="text-center text-[11px] text-muted-foreground">
-                Secured by Firebase Authentication • Your Google credentials never touch our servers
-              </p>
-            )}
-
-            {/* Demo button as fallback (useful before Google Sign-In provider is enabled) */}
-            <Button
-              variant="outline"
-              className="w-full h-11 rounded-xl"
-              onClick={loginCreatorMock}
-              disabled={!!loading}
+            {/* How it works button */}
+            <button
+              onClick={() => setShowHowItWorks(true)}
+              className="w-full h-11 rounded-xl glass flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              {loading === "demo" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-1.5" />
-                  See demo account
-                </>
-              )}
-            </Button>
+              <HelpCircle className="h-4 w-4" />
+              How it works
+            </button>
 
             {pendingReferralCode && (
               <p className="text-center text-[11px] text-primary">
@@ -179,20 +160,158 @@ export function LoginScreen() {
             )}
           </motion.div>
 
-          {/* Trust footer */}
+          {/* Trust badges */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="mt-8 grid grid-cols-2 gap-2"
+          >
+            {[
+              { icon: ShieldCheck, label: "Secure Google Sign-In" },
+              { icon: Shield, label: "Manual Fraud Protection" },
+              { icon: Wallet, label: "UPI Withdrawals" },
+              { icon: Lock, label: "Firebase Secured" },
+            ].map((b, i) => (
+              <div key={i} className="glass rounded-xl p-2.5 flex items-center gap-2">
+                <b.icon className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-[10px] font-medium leading-tight">{b.label}</span>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Footer text */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mt-10 text-center text-[11px] text-muted-foreground"
+            className="mt-8 text-center text-[11px] text-muted-foreground"
           >
             By continuing, you agree to our Terms & Privacy Policy.
             <br />
-            {firebaseReady ? "Powered by Firebase Auth + Google Sign-In" : "Demo mode — no password required"}
+            Powered by Firebase Auth + Google Sign-In
           </motion.div>
         </main>
       </div>
+
+      {/* How it works — bottom sheet */}
+      <AnimatePresence>
+        {showHowItWorks && (
+          <HowItWorksSheet onClose={() => setShowHowItWorks(false)} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function HowItWorksSheet({ onClose }: { onClose: () => void }) {
+  const steps = [
+    {
+      icon: Download,
+      title: "Download the Logo",
+      desc: "Get the ExBranda logo and add it to your Instagram Reel. Keep it visible for the full length of your video.",
+    },
+    {
+      icon: Upload,
+      title: "Submit Your Reel",
+      desc: "Paste your Instagram Reel URL and enter the current view count. We automatically calculate only the new views you haven't been paid for.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Get Approved",
+      desc: "Our team manually reviews each submission within 24 hours. Once approved, earnings are instantly credited to your wallet.",
+    },
+    {
+      icon: Wallet,
+      title: "Withdraw via UPI",
+      desc: "Once you reach ₹500 in your wallet, request a withdrawal to your UPI ID. Payment is processed within 24 hours.",
+    },
+  ];
+
+  const faqs = [
+    { q: "How much can I earn?", a: "₹100 for every 10,000 new views. With a referral bonus active, you earn ₹105 per 10,000 views." },
+    { q: "Can I submit the same reel twice?", a: "Yes! But we only pay for new views. If your reel already had 15,000 approved views and now has 32,000, you get paid for the 17,000 new views." },
+    { q: "When do I get paid?", a: "After admin approval, money moves to your wallet instantly. Withdrawals to UPI are processed within 24 hours." },
+    { q: "What's the referral bonus?", a: "Invite other creators with your referral code. When they complete their first withdrawal, you permanently earn +5% on every view." },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="bg-background w-full max-w-md max-h-[85vh] overflow-y-auto slim-scroll rounded-t-3xl sm:rounded-3xl p-5 space-y-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Handle bar */}
+        <div className="flex items-center justify-between">
+          <div className="h-1 w-10 rounded-full bg-foreground/15 sm:hidden" />
+          <h2 className="text-lg font-semibold">How ExBranda Works</h2>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-full bg-foreground/5 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Steps */}
+        <div className="space-y-3">
+          {steps.map((s, i) => (
+            <div key={i} className="flex gap-3">
+              <div className="flex flex-col items-center shrink-0">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <s.icon className="h-5 w-5" />
+                </div>
+                {i < steps.length - 1 && <div className="w-px flex-1 bg-border mt-1 min-h-[12px]" />}
+              </div>
+              <div className="flex-1 pb-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-primary">STEP {i + 1}</span>
+                </div>
+                <h3 className="text-sm font-semibold mt-0.5">{s.title}</h3>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div className="h-px bg-border/40" />
+
+        {/* Quick FAQ */}
+        <div>
+          <h3 className="text-sm font-semibold mb-2.5 flex items-center gap-1.5">
+            <CircleCheck className="h-4 w-4 text-primary" />
+            Quick Answers
+          </h3>
+          <div className="space-y-2.5">
+            {faqs.map((f, i) => (
+              <div key={i} className="glass rounded-xl p-3">
+                <div className="text-xs font-semibold">{f.q}</div>
+                <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{f.a}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <Button
+          className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold"
+          onClick={onClose}
+        >
+          Got it — let's start earning
+        </Button>
+      </motion.div>
+    </motion.div>
   );
 }
 
