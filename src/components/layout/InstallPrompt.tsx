@@ -5,38 +5,85 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Download, X, Smartphone } from "lucide-react";
 
 const DISMISS_KEY = "exbranda-install-dismissed-at";
-// Show again after this many hours
-const RESHOW_HOURS = 1;
+const PERMANENT_HIDE_KEY = "exbranda-install-permanently-hidden";
 
 export function InstallPrompt() {
   const [show, setShow] = React.useState(false);
+  const [canInstall, setCanInstall] = React.useState(false);
 
+  // Detect standalone mode + capture beforeinstallprompt
   React.useEffect(() => {
-    // Don't show if the app is already installed (running in standalone mode)
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone === true ||
-      document.referrer.startsWith("android-app://");
+    // 1. Check if already running as an installed PWA
+    const checkStandalone = () => {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.matchMedia("(display-mode: minimal-ui)").matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.startsWith("android-app://")
+      );
+    };
 
-    if (isStandalone) return;
+    // 2. Check if user permanently dismissed (installed or clicked "not now" permanently)
+    const permanentlyHidden = localStorage.getItem(PERMANENT_HIDE_KEY) === "true";
 
-    // Don't show if the browser has already fired appinstalled event
-    if ((window as any).__appInstalled) return;
-
-    // Show on every entry, but respect a short dismissal window
-    const dismissedAt = Number(sessionStorage.getItem(DISMISS_KEY) || 0);
-    const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
-    if (hoursSince >= RESHOW_HOURS) {
-      // Small delay so it slides up after page load
-      const t = setTimeout(() => setShow(true), 800);
-      return () => clearTimeout(t);
+    if (checkStandalone() || permanentlyHidden) {
+      // Running as installed app — never show
+      setCanInstall(false);
+      return;
     }
+
+    // 3. Capture beforeinstallprompt — if this fires, the app is NOT installed
+    //    and the browser supports PWA install. If it does NOT fire, the app
+    //    might be installed OR the browser doesn't support PWA.
+    const handler = (e: Event) => {
+      e.preventDefault();
+      (window as any).__beforeInstallPromptEvent = e;
+      setCanInstall(true);
+
+      // Now that we know the app can be installed, check dismissal window
+      const dismissedAt = Number(sessionStorage.getItem(DISMISS_KEY) || 0);
+      const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
+      if (hoursSince >= 1) {
+        const t = setTimeout(() => setShow(true), 1200);
+        return () => clearTimeout(t);
+      }
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+
+    // 4. If beforeinstallprompt doesn't fire within 2 seconds, the app is
+    //    either installed or the browser doesn't support install. Either way,
+    //    don't show the prompt.
+    //    BUT: iOS Safari never fires beforeinstallprompt, yet doesn't support
+    //    display-mode: standalone reliably. So on iOS we show the prompt with
+    //    manual instructions.
+    const fallbackTimer = setTimeout(() => {
+      if (!(window as any).__beforeInstallPromptEvent) {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        if (isIOS && !checkStandalone()) {
+          // iOS without standalone = running in Safari, can install via Share menu
+          const dismissedAt = Number(sessionStorage.getItem(DISMISS_KEY) || 0);
+          const hoursSince = (Date.now() - dismissedAt) / (1000 * 60 * 60);
+          if (hoursSince >= 1) {
+            setShow(true);
+          }
+        }
+        // Non-iOS without beforeinstallprompt = likely installed or not supported
+        // Don't show
+      }
+    }, 2000);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
-  // Listen for the appinstalled event — hide the prompt permanently
+  // Listen for appinstalled — permanently hide
   React.useEffect(() => {
     const onInstalled = () => {
-      (window as any).__appInstalled = true;
+      localStorage.setItem(PERMANENT_HIDE_KEY, "true");
       setShow(false);
     };
     window.addEventListener("appinstalled", onInstalled);
@@ -49,29 +96,23 @@ export function InstallPrompt() {
   }, []);
 
   const install = () => {
-    // Try native PWA install prompt if available
     const evt = (window as any).__beforeInstallPromptEvent;
     if (evt) {
       evt.prompt();
-      evt.userChoice?.then(() => dismiss());
+      evt.userChoice?.then((choice: any) => {
+        if (choice.outcome === "accepted") {
+          localStorage.setItem(PERMANENT_HIDE_KEY, "true");
+        }
+        setShow(false);
+      });
     } else {
-      // Fallback: show instructions
+      // iOS fallback
       alert(
-        'To install ExBranda:\n\n• Chrome/Edge: tap the menu (⋮) → "Add to Home screen"\n• Safari: tap the Share button → "Add to Home Screen"'
+        'To install ExBranda:\n\n• Safari: tap the Share button → "Add to Home Screen"\n• Chrome: tap the menu (⋮) → "Add to Home screen"'
       );
       dismiss();
     }
   };
-
-  // Capture the beforeinstallprompt event for native PWA install
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      (window as any).__beforeInstallPromptEvent = e;
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
 
   return (
     <AnimatePresence>
@@ -85,15 +126,10 @@ export function InstallPrompt() {
         >
           <div className="mx-auto max-w-md px-3 pb-3 pointer-events-auto">
             <div className="solid rounded-3xl p-5 shadow-2xl shadow-black/20 dark:shadow-black/50 relative overflow-hidden">
-              {/* Decorative gradient */}
               <div className="absolute -top-12 -right-8 h-32 w-32 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
 
-              {/* Close button — high z-index, stop propagation, larger hit area */}
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  dismiss();
-                }}
+                onClick={(e) => { e.stopPropagation(); dismiss(); }}
                 className="absolute top-3 right-3 z-20 h-8 w-8 rounded-full bg-foreground/5 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors touch-manipulation"
                 aria-label="Dismiss"
                 type="button"
@@ -110,7 +146,6 @@ export function InstallPrompt() {
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     Add ExBranda to your home screen for a faster, full-screen experience. No app store needed.
                   </p>
-                  {/* Action buttons */}
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       onClick={install}
@@ -121,10 +156,7 @@ export function InstallPrompt() {
                       Install Now
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        dismiss();
-                      }}
+                      onClick={(e) => { e.stopPropagation(); dismiss(); }}
                       className="inline-flex items-center h-9 px-4 rounded-xl bg-foreground/5 text-muted-foreground text-xs font-medium hover:bg-foreground/10 hover:text-foreground transition-colors"
                       type="button"
                     >
