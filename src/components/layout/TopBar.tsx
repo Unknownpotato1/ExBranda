@@ -72,7 +72,10 @@ export function TopBar() {
               <Moon className="absolute h-4.5 w-4.5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </button>
             <button
-              onClick={() => setView("notifications")}
+              onClick={() => {
+                setUnread(0);
+                setView("notifications");
+              }}
               className="relative h-9 w-9 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-foreground/5 transition-colors"
               aria-label="Notifications"
             >

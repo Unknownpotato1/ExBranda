@@ -652,8 +652,13 @@ function UsersTab() {
                       {u.fullName || u.name}
                       {u.banned && <span className="ml-1.5 text-[10px] text-rose-500">BANNED</span>}
                     </div>
-                    <div className="text-[11px] text-muted-foreground truncate">{u.userEmail || u.email}</div>
-                    {u.userInstagram && <div className="text-[11px] text-primary truncate">{u.userInstagram}</div>}
+                    <div className="text-[11px] text-muted-foreground truncate">{u.email || u.userEmail}</div>
+                    {u.instagramHandle && (
+                      <div className="text-[11px] text-primary truncate flex items-center gap-1">
+                        <Instagram className="h-2.5 w-2.5 shrink-0" />
+                        {u.instagramHandle}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
