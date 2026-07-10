@@ -58,12 +58,14 @@ export function AppShell() {
             <ViewRouter view={view} setView={setView} />
           </motion.div>
         </AnimatePresence>
-
-        {/* Footer — only on dashboard, not on admin/forms */}
-        {(view === "dashboard" || view === "faq" || view === "legal" || view === "chat") && (
-          <Footer />
-        )}
       </main>
+
+      {/* Footer — only on dashboard, not on admin/forms */}
+      {(view === "dashboard" || view === "faq" || view === "legal" || view === "chat") && (
+        <div className="pb-24">
+          <Footer />
+        </div>
+      )}
 
       {!isAdminView && <BottomNav />}
 
